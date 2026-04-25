@@ -1,0 +1,28 @@
+Package: rawvignette
+Type: Package
+Title: Precompiled Vignettes for R Packages
+Version: 0.0.0.9000
+Authors@R: person("Matthew", "Kling", role = c("aut", "cre"),
+                  email = "TODO@example.com")
+Description: Scaffolding and tooling for the precomputed-vignette
+    workflow, where the R code in a package vignette is executed once
+    by the author (locally, where data and compute are available) and
+    the rendered output is committed to the package. The vignette
+    source lives in 'vignettes-raw/' so it retains full IDE support,
+    while the knitted output in 'vignettes/' ships to users and is
+    processed without executing expensive code on CRAN, in CI, or in
+    pkgdown.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports:
+    knitr,
+    tools
+Suggests:
+    testthat (>= 3.0.0),
+    withr
+Config/testthat/edition: 3
+URL: https://github.com/matthewkling/rawvignette
+BugReports: https://github.com/matthewkling/rawvignette/issues
