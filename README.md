@@ -71,24 +71,21 @@ your-package/
 
 ## Comparison to other pre-compilation approaches
 
-**`xfun::cache_rds()`**: caches expression results to `.rds` files for fast
+- **`xfun::cache_rds()`**: caches expression results to `.rds` files for fast
 local re-knitting, but isn't designed to bundle those caches into the shipped
 package --- CRAN still re-executes unless you configure that explicitly.
 `rawvignette` takes the opposite approach: skip the re-execution entirely.
-
-**`R.rsp` pre-built vignettes**: ships pre-rendered HTML as the vignette.
+- **`R.rsp` pre-built vignettes**: ships pre-rendered HTML as the vignette.
 Works, but pkgdown can't re-style the vignette to match your site theme since
 it's already baked. `rawvignette`'s output is still an `.Rmd`, which pkgdown
 can render with the rest of the site.
-
-**The `.Rmd.orig` convention**: the original rOpenSci recommendation.
+- **The `.Rmd.orig` convention**: the original rOpenSci recommendation.
 Identical in spirit, but renaming the source to `.orig` strips IDE
 recognition --- in RStudio you lose syntax highlighting, chunk controls,
 and the Knit button. `rawvignette` keeps the source as `.Rmd` in a sibling
 directory so tools treat it normally, and streamlines setup and compilation
 via helper functions.
-
-**Articles (`usethis::use_article()`)**: the pkgdown-only alternative.
+- **Articles (`usethis::use_article()`)**: the pkgdown-only alternative.
 Good for ancillary content that doesn't need to ship with the package.
 Not good for core tutorials: articles aren't installed locally, don't
 appear on CRAN, and aren't discoverable via `vignette()`. Use
