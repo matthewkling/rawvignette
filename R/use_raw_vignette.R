@@ -1,17 +1,16 @@
 #' Scaffold a raw (precompiled) vignette
 #'
 #' Creates the infrastructure for a precompiled vignette:
-#' - `vignettes-raw/<name>.Rmd` (the editable source)
-#' - `vignettes-raw/precompile.R` (the rebuild script; created once)
+#' - `vignettes-raw/<n>.Rmd` (the editable source)
 #' - An entry in `.Rbuildignore` for `vignettes-raw/`
 #' - `vignettes/figures/` directory (where generated figures will land)
 #'
-#' If `vignettes/<name>.Rmd` already exists (e.g. from a previous
-#' `usethis::use_vignette()` call), it is migrated to `vignettes-raw/<name>.Rmd`
+#' If `vignettes/<n>.Rmd` already exists (e.g. from a previous
+#' `usethis::use_vignette()` call), it is migrated to `vignettes-raw/<n>.Rmd`
 #' rather than overwritten.
 #'
-#' After running this, edit the skeleton in `vignettes-raw/<name>.Rmd`, then
-#' call [precompile_raw_vignettes()] to generate the shipped `vignettes/<name>.Rmd`.
+#' After running this, edit the skeleton in `vignettes-raw/<n>.Rmd`, then
+#' call [precompile_raw_vignettes()] to generate the shipped `vignettes/<n>.Rmd`.
 #'
 #' In interactive sessions, the source file is opened for editing (in RStudio
 #' if available, otherwise via `utils::file.edit()`).
@@ -46,12 +45,6 @@ use_raw_vignette <- function(name, title = NULL) {
             if (is.null(title)) title <- name
             writeLines(vignette_skeleton(name, title, package_name()), src_path)
             message("Created ", src_path)
-      }
-
-      pc_path <- file.path(raw_dir, "precompile.R")
-      if (!file.exists(pc_path)) {
-            writeLines(precompile_skeleton(), pc_path)
-            message("Created ", pc_path)
       }
 
       add_to_rbuildignore("^vignettes-raw$")

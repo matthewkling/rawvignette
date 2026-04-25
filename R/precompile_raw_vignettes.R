@@ -78,11 +78,7 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
                   quiet  = quiet,
                   envir  = new.env(parent = globalenv())
             )
-            inject_generated_notice(
-                  path            = out,
-                  source_path     = src,
-                  precompile_path = file.path(raw_dir, "precompile.R")
-            )
+            inject_generated_notice(path = out, source_path = src)
 
             # Clean up orphaned figures: files matching this vignette's prefix
             # that weren't written (or re-written) during this knit.

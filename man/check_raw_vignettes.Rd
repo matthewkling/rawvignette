@@ -13,12 +13,39 @@ A data frame with columns \code{name}, \code{source}, \code{output},
 a message summarizing any stale vignettes.
 }
 \description{
-Compares modification times of each \verb{vignettes-raw/<name>.Rmd} against
-its corresponding \verb{vignettes/<name>.Rmd}. A source file newer than its
+Compares modification times of each \verb{vignettes-raw/<n>.Rmd} against
+its corresponding \verb{vignettes/<n>.Rmd}. A source file newer than its
 output means the output is stale and should be regenerated with
 \code{\link[=precompile_raw_vignettes]{precompile_raw_vignettes()}}.
 }
-\details{
-Useful as a pre-release check or in a CI job that runs on pushes to
-a release branch.
+\section{What this catches}{
+
+The common case: you edited the raw source and forgot to precompile
+before committing or releasing. mtime comparison reliably catches this.
 }
+
+\section{What this does not catch}{
+
+This check uses file modification times as a heuristic and will miss
+several categories of true staleness. Treat its "fresh" verdict as a
+weak guarantee, not a strong one. Specifically, it cannot detect:
+\itemize{
+\item \strong{Changes to package source code.} If you edit \code{R/foo.R} so that
+\code{foo()} now returns different output, the vignette's captured output
+is logically stale even though \verb{vignettes-raw/<n>.Rmd} is unchanged.
+\item \strong{Changes to data files.} Updates to \verb{inst/extdata/}, \verb{data/}, or
+any external file the vignette reads from will not be detected.
+\item \strong{Changes to dependency package versions.} If a package the vignette
+uses changes behavior between rebuilds, the captured output may no
+longer reflect what the code now produces.
+\item \strong{Touched-but-unchanged sources.} Opening and re-saving the source
+without editing it will update its mtime and falsely report staleness.
+\item \strong{Branch switches.} \verb{git checkout} updates file mtimes, which can
+make every vignette look stale immediately after switching branches.
+}
+
+For a robust freshness guarantee, the only reliable approach is to
+run \code{\link[=precompile_raw_vignettes]{precompile_raw_vignettes()}} whenever any plausibly-relevant input
+has changed.
+}
+

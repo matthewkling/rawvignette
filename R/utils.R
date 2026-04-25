@@ -1,6 +1,6 @@
 # Internal helpers. Not exported.
 
-inject_generated_notice <- function(path, source_path, precompile_path) {
+inject_generated_notice <- function(path, source_path) {
       lines <- readLines(path, warn = FALSE)
       yaml_delims <- which(lines == "---")
       insert_at <- if (length(yaml_delims) >= 2L) yaml_delims[2] else 0L
@@ -10,8 +10,7 @@ inject_generated_notice <- function(path, source_path, precompile_path) {
             "<!--",
             "  THIS FILE IS GENERATED. Do not edit by hand.",
             paste0("  Source: ", source_path),
-            paste0("  Regenerate with: rawvignette::precompile_raw_vignettes()"),
-            paste0("  (or run: Rscript ", precompile_path, ")"),
+            "  Regenerate with: rawvignette::precompile_raw_vignettes()",
             "-->"
       )
 
@@ -81,21 +80,5 @@ vignette_skeleton <- function(name, title, pkg) {
             "Write vignette content here. This is the source — edit it freely.",
             "Run `rawvignette::precompile_raw_vignettes()` to regenerate the shipped",
             paste0("vignette at `vignettes/", name, ".Rmd`.")
-      )
-}
-
-precompile_skeleton <- function() {
-      c(
-            "# Rebuild all precompiled vignettes for this package.",
-            "# Run from the package root:",
-            "#   Rscript vignettes-raw/precompile.R",
-            "# Or interactively:",
-            "#   rawvignette::precompile_raw_vignettes()",
-            "",
-            'if (requireNamespace("devtools", quietly = TRUE)) {',
-            '  devtools::load_all(".")',
-            "}",
-            "",
-            "rawvignette::precompile_raw_vignettes()"
       )
 }

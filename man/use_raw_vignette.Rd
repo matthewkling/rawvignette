@@ -18,19 +18,18 @@ Invisibly, the path to the raw source file.
 \description{
 Creates the infrastructure for a precompiled vignette:
 \itemize{
-\item \verb{vignettes-raw/<name>.Rmd} (the editable source)
-\item \code{vignettes-raw/precompile.R} (the rebuild script; created once)
+\item \verb{vignettes-raw/<n>.Rmd} (the editable source)
 \item An entry in \code{.Rbuildignore} for \verb{vignettes-raw/}
 \item \verb{vignettes/figures/} directory (where generated figures will land)
 }
 }
 \details{
-If \verb{vignettes/<name>.Rmd} already exists (e.g. from a previous
-\code{usethis::use_vignette()} call), it is migrated to \verb{vignettes-raw/<name>.Rmd}
+If \verb{vignettes/<n>.Rmd} already exists (e.g. from a previous
+\code{usethis::use_vignette()} call), it is migrated to \verb{vignettes-raw/<n>.Rmd}
 rather than overwritten.
 
-After running this, edit the skeleton in \verb{vignettes-raw/<name>.Rmd}, then
-call \code{\link[=precompile_raw_vignettes]{precompile_raw_vignettes()}} to generate the shipped \verb{vignettes/<name>.Rmd}.
+After running this, edit the skeleton in \verb{vignettes-raw/<n>.Rmd}, then
+call \code{\link[=precompile_raw_vignettes]{precompile_raw_vignettes()}} to generate the shipped \verb{vignettes/<n>.Rmd}.
 
 In interactive sessions, the source file is opened for editing (in RStudio
 if available, otherwise via \code{utils::file.edit()}).
