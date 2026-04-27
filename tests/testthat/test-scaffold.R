@@ -5,7 +5,6 @@ test_that("use_raw_vignette creates expected structure in fresh package", {
             use_raw_vignette("intro", title = "Introduction")
 
             expect_true(file.exists("vignettes-raw/intro.Rmd"))
-            expect_true(file.exists("vignettes-raw/precompile.R"))
             expect_true(dir.exists("vignettes/figures"))
             expect_true(file.exists(".Rbuildignore"))
 

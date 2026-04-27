@@ -8,8 +8,7 @@ test_that("inject_generated_notice adds notice after YAML", {
             "Body text"
       ), path)
 
-      inject_generated_notice(path, "vignettes-raw/test.Rmd",
-                              "vignettes-raw/precompile.R")
+      inject_generated_notice(path, "vignettes-raw/test.Rmd")
 
       result <- readLines(path)
       expect_true(any(grepl("THIS FILE IS GENERATED", result)))
@@ -23,7 +22,7 @@ test_that("inject_generated_notice handles file with no YAML", {
       path <- withr::local_tempfile()
       writeLines(c("Just some body text"), path)
 
-      inject_generated_notice(path, "src.Rmd", "precompile.R")
+      inject_generated_notice(path, "src.Rmd")
 
       result <- readLines(path)
       expect_true(any(grepl("THIS FILE IS GENERATED", result)))
