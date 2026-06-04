@@ -128,7 +128,7 @@ use_raw_vignette <- function(name, title = NULL) {
             "  3. Commit ", src_path, ", ", vig_path,
             if (is_article) ", and any new figures (web-only)."
             else ", and any new figures.",
-            "  4. [OPTIONAL] Run `rawvignette::use_raw_vignette_hook()` to configure a\n",
+            "\n  4. [OPTIONAL] Run `rawvignette::use_raw_vignette_hook()` to configure a\n",
             "     pre-commit check for stale vignettes, so you don't forget to precompile."
       )
 

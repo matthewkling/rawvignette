@@ -31,17 +31,16 @@ knitr::opts_knit$set(root.dir = demo_pkg)
 library(rawvignette)
 ```
 
+## The problem
 
 By default, R rebuilds your vignettes every time the package is built --
 during `R CMD check`, on CRAN, on GitHub Actions, and when pkgdown
 generates your site. Usually that is a good thing: it keeps the rendered
-output honest. 
+output in sync with the packge source code. 
 
-## The problem
-
-But when a vignette (or a pkgdown article) does heavy work -- a long or 
+But when a vignette or pkgdown article does heavy work (a long or 
 memory-intensive computation, a call to a rate-limited API, a large 
-dataset -- rebuilding it everywhere, every time, can become annoying or 
+dataset) rebuilding it everywhere, every time, can become annoying or 
 impossible.
 
 Here is the kind of chunk that causes the trouble. Imagine the `Sys.sleep()` 
@@ -62,8 +61,8 @@ to the input data and has to run a two-hour job each time the vignette is built.
 
 ## The idea
 
-The goal of `rawvignette` is to build the vignette once, on your machine, and ship 
-the already-computed result.
+The alternative enabled by `rawvignette` is to build the vignette once, on your 
+machine, and ship the already-computed result.
 
 The workflow splits a vignette into two stages:
 
@@ -98,8 +97,8 @@ run the workflow from your package's top level.
 You can also use it to migrate an existing standard vignette or article to the
 `rawvignette` workflow. The function wires up the supporting infrastructure 
 (the `vignettes-raw/` directory, a `.Rbuildignore` entry, and a `vignettes/figures/` 
-directory for vignettes), and either creates a new vignette/article `.Rmd` file for you
-to edit, or moves your existing `.Rmd` into the new directory.
+directory for vignettes), and either creates a new vignette/article `.Rmd` file for 
+you to edit, or moves your existing `.Rmd` into the new directory.
 
 ```{r scaffold}
 use_raw_vignette("intro", title = "Introduction")
@@ -151,7 +150,7 @@ The shipped vignette now exists, with the computed output baked in:
 ```{r show-output}
 list.files("vignettes")
 out <- readLines("vignettes/intro.Rmd")
-cat(head(out, 20), sep = "\n")
+cat(head(out, 25), sep = "\n")
 ```
 
 Notice the generated notice at the top: editing `vignettes/intro.Rmd`
