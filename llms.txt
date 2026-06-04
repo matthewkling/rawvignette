@@ -125,13 +125,8 @@ in `vignettes-raw/` while the shipped output lives in `vignettes/`:
 
 To catch the most common slip — editing a `vignettes-raw/` source and
 forgetting to precompile before committing — you can optionally install
-a git pre-commit hook:
-
-``` r
-
-rawvignette::use_raw_vignette_hook()
-```
-
+a git pre-commit hook with
+[`rawvignette::use_raw_vignette_hook()`](https://matthewkling.github.io/rawvignette/reference/use_raw_vignette_hook.md).
 This runs
 [`check_raw_vignettes()`](https://matthewkling.github.io/rawvignette/reference/check_raw_vignettes.md)
 on every commit and blocks the commit if any output is stale. The hook
@@ -193,3 +188,9 @@ before a release.
 - [`use_raw_vignette_hook()`](https://matthewkling.github.io/rawvignette/reference/use_raw_vignette_hook.md)
   : Install a pre-commit hook that checks precompiled-vignette freshness
 
+# Articles
+
+### All vignettes
+
+- [Precompiled vignettes and articles with
+  rawvignette](https://matthewkling.github.io/rawvignette/articles/rawvignette.md):
