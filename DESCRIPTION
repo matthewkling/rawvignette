@@ -28,3 +28,4 @@ Config/testthat/edition: 3
 URL: https://github.com/matthewkling/rawvignette, https://matthewkling.github.io/rawvignette/
 BugReports: https://github.com/matthewkling/rawvignette/issues
 Config/roxygen2/version: 8.0.0
+VignetteBuilder: knitr

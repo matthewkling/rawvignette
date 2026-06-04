@@ -1,0 +1,227 @@
+---
+title: "Precompiled vignettes and articles with rawvignette"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Precompiled vignettes and articles with rawvignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment  = "#>"
+)
+
+# This vignette demonstrates the workflow inside a disposable throwaway
+# package created in a temporary directory. We create it here and point
+# knitr's root directory at it, so every chunk below runs as if from that
+# package's root. (opts_knit$set(root.dir = ...) is the supported way to do
+# this; a setwd() inside a chunk is undone by knitr after that chunk and
+# would not persist to later chunks.)
+demo_pkg <- file.path(tempdir(), "demopkg")
+unlink(demo_pkg, recursive = TRUE)
+dir.create(demo_pkg, showWarnings = FALSE)
+writeLines(c("Package: demopkg", "Version: 0.0.1"),
+           file.path(demo_pkg, "DESCRIPTION"))
+knitr::opts_knit$set(root.dir = demo_pkg)
+```
+
+```{r}
+library(rawvignette)
+```
+
+
+By default, R rebuilds your vignettes every time the package is built --
+during `R CMD check`, on CRAN, on GitHub Actions, and when pkgdown
+generates your site. Usually that is a good thing: it keeps the rendered
+output honest. 
+
+## The problem
+
+But when a vignette (or a pkgdown article) does heavy work -- a long or 
+memory-intensive computation, a call to a rate-limited API, a large 
+dataset -- rebuilding it everywhere, every time, can become annoying or 
+impossible.
+
+Here is the kind of chunk that causes the trouble. Imagine the `Sys.sleep()` 
+below is an intensive simulation that depends on a large input dataset and 
+takes two hours to run:
+
+```{r slow-example}
+expensive_result <- {
+  Sys.sleep(2)  # stand-in for genuinely slow work
+  summary(1:1000)
+}
+expensive_result
+```
+
+If that chunk lives in an ordinary vignette, every build server needs access
+to the input data and has to run a two-hour job each time the vignette is built. 
+
+
+## The idea
+
+The goal of `rawvignette` is to build the vignette once, on your machine, and ship 
+the already-computed result.
+
+The workflow splits a vignette into two stages:
+
+- A **source** in `vignettes-raw/`, with live, executable code. You edit
+  and run this locally, whenever you choose.
+- A **staged** `.Rmd` in `vignettes/`, produced by knitting the source.
+  Its code has already been executed and its output inlined, so there is
+  nothing expensive left to run.
+
+Downstream tools only ever see the staged form. `R CMD check`, CRAN, and
+pkgdown re-knit it, but since its chunks are already evaluated, that
+re-knit is instant.
+
+This is the well-established "precompiled vignette" idea (see the
+[rOpenSci tech note](https://ropensci.org/blog/2019/12/08/precompute-vignettes/));
+`rawvignette` just adds tooling around it -- scaffolding, figure handling,
+`.Rbuildignore` management, and a freshness check -- so you do not have to
+script those by hand.
+
+
+## Walking through the workflow
+
+The functions expect to run from a package root. To keep this vignette
+self-contained and runnable, the examples below operate in a disposable
+throwaway package created in a temporary directory (set up invisibly when
+this vignette starts). In your own work you would skip that step and simply
+run the workflow from your package's top level.
+
+### 1. Scaffold a source
+
+`use_raw_vignette()` sets up a skeleton for a new pre-compiled vignette or article.
+You can also use it to migrate an existing standard vignette or article to the
+`rawvignette` workflow. The function wires up the supporting infrastructure 
+(the `vignettes-raw/` directory, a `.Rbuildignore` entry, and a `vignettes/figures/` 
+directory for vignettes), and either creates a new vignette/article `.Rmd` file for you
+to edit, or moves your existing `.Rmd` into the new directory.
+
+```{r scaffold}
+use_raw_vignette("intro", title = "Introduction")
+```
+
+That leaves you with a skeleton source to edit:
+
+```{r show-source}
+list.files("vignettes-raw")
+```
+
+In real use you would now open `vignettes-raw/intro.Rmd` and write your
+vignette there, iterating and running code the same way you would for a 
+normal vignette. For the demo, let's drop in a chunk that does some 
+(pretend-expensive) work:
+
+```{r write-source}
+writeLines(c(
+  "---",
+  'title: "Introduction"',
+  "output: rmarkdown::html_vignette",
+  "vignette: >",
+  "  %\\VignetteIndexEntry{Introduction}",
+  "  %\\VignetteEngine{knitr::rmarkdown}",
+  "  %\\VignetteEncoding{UTF-8}",
+  "---",
+  "",
+  "```{r}",
+  "# Pretend this is slow:",
+  "nrow(mtcars)",
+  "```"
+), "vignettes-raw/intro.Rmd")
+```
+
+
+### 2. Precompile
+
+`precompile_raw_vignettes()` knits every source under `vignettes-raw/`
+to its counterpart in `vignettes/`, running the code once and inlining
+the results. It also injects a "do not edit by hand" notice identifying
+the source.
+
+```{r precompile}
+precompile_raw_vignettes()
+```
+
+The shipped vignette now exists, with the computed output baked in:
+
+```{r show-output}
+list.files("vignettes")
+out <- readLines("vignettes/intro.Rmd")
+cat(head(out, 20), sep = "\n")
+```
+
+Notice the generated notice at the top: editing `vignettes/intro.Rmd`
+directly would be a mistake, because the next precompile overwrites it.
+The source of truth is `vignettes-raw/intro.Rmd`.
+
+### 3. Check freshness
+
+Because the two files can drift -- you edit the source, then forget to
+re-precompile -- you can use `check_raw_vignettes()` to compares their 
+file modification times and flags any stale output.
+
+```{r check-fresh}
+check_raw_vignettes()
+```
+
+Right after precompiling, everything is fresh. If you now edit the source
+without re-precompiling, the check notices:
+
+```{r check-stale}
+# Simulate editing the source after the output was built.
+Sys.setFileTime("vignettes-raw/intro.Rmd", Sys.time() + 5)
+check_raw_vignettes()
+```
+
+This is a heuristic, not a guarantee. It catches the common slip -- an
+un-precompiled edit -- but cannot detect staleness caused by changes to
+your package code, data files, or dependency versions, since those do not
+touch the source `.Rmd`. The only robust guarantee is to re-run
+`precompile_raw_vignettes()` before a release.
+
+To catch the forgot-to-precompile slip automatically, you can install a
+git pre-commit hook that runs the freshness check and blocks a commit when
+an output is stale, using `use_raw_vignette_hook()`. If you already have a 
+pre-commit hook (for example, the one
+`usethis::use_readme_rmd()` installs), pass `on_collision = "append"` to
+add the check alongside it instead of replacing it. The hook is a local
+convenience: it lives in `.git/hooks/`, so it is not version-controlled and
+must be re-installed per clone, and like the freshness check it compares
+modification times only. See `?use_raw_vignette_hook` for details.
+
+
+## Articles
+
+pkgdown also displays **articles**: vignette-like documents that appear on
+your website but do not ship with the package (handy for content that is
+large, depends on unavailable resources, or simply does not belong on
+CRAN). `rawvignette` precompiles articles the same way -- the main
+difference is where they live.
+
+Pass an `articles/` prefix, and the source goes to
+`vignettes-raw/articles/`, the output to `vignettes/articles/`, and an
+extra `.Rbuildignore` entry keeps the whole `vignettes/articles/` subtree
+(rendered article plus its figures) out of the package tarball:
+
+```r
+use_raw_vignette("articles/benchmark", title = "Benchmark")
+```
+
+This creates an `Rmd.` with slightly different header parameters, appropriate
+for a pkgdown article. Everything else -- editing, precompiling, the freshness 
+check -- works identically. There is no separate flag to set; the `articles/` 
+location is the single signal that a document is an article rather than a vignette.
+
+
+## When to use `rawvignette`
+
+Precompilation has a real cost: your documentation no longer rebuilds
+automatically when the package changes, so you take on the discipline of
+re-precompiling when relevant inputs change. That trade is worth it for
+genuinely expensive vignettes, and not worth it for cheap ones. Precompile
+the documents that are slow, flaky, or resource-hungry; leave the rest as
+ordinary vignettes.

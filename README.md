@@ -109,13 +109,8 @@ in `vignettes-raw/` while the shipped output lives in `vignettes/`:
 
 To catch the most common slip &mdash; editing a `vignettes-raw/` source and
 forgetting to precompile before committing &mdash; you can optionally install a
-git pre-commit hook:
-
-```r
-rawvignette::use_raw_vignette_hook()
-```
-
-This runs `check_raw_vignettes()` on every commit and blocks the commit if any
+git pre-commit hook with `rawvignette::use_raw_vignette_hook()`. This runs 
+`check_raw_vignettes()` on every commit and blocks the commit if any
 output is stale. The hook is a convenience, not a guarantee: it compares file
 modification times, so it catches an un-precompiled edit but not staleness from
 changed package code, data, or dependencies &mdash; and because it lives in
