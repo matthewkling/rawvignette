@@ -27,7 +27,7 @@
 #' @section Articles vs vignettes:
 #' Whether a source is treated as an article is auto-detected from its
 #' path: anything under `articles/` (relative to `vignettes-raw/`) is an
-#' article. There is deliberately no separate flag — the source location
+#' article. There is deliberately no separate flag -- the source location
 #' is the single source of truth, so a no-argument call does the right
 #' thing across a mixed tree.
 #'

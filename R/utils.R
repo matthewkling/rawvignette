@@ -192,7 +192,7 @@ vignette_skeleton <- function(name, title, pkg, article = FALSE) {
             paste0("library(", pkg, ")"),
             "```",
             "",
-            paste0("Write ", kind, " content here. This is the source — edit it freely."),
+            paste0("Write ", kind, " content here. This is the source -- edit it freely."),
             "Run `rawvignette::precompile_raw_vignettes()` to regenerate the shipped",
             paste0(kind, " at `", regen_target, "`.")
       )

@@ -124,12 +124,12 @@ use_raw_vignette <- function(name, title = NULL) {
       message(
             "\nNext steps:\n",
             "  1. Edit ", src_path, "\n",
-            "  2. Run: rawvignette::precompile_raw_vignettes()\n",
+            "  2. Run: `rawvignette::precompile_raw_vignettes()`\n",
             "  3. Commit ", src_path, ", ", vig_path,
             if (is_article) ", and any new figures (web-only)."
             else ", and any new figures.",
-            "\n\nOptional: rawvignette::use_raw_vignette_hook() installs a ",
-            "pre-commit\nfreshness check so you don't forget to precompile."
+            "  4. [OPTIONAL] Run `rawvignette::use_raw_vignette_hook()` to configure a\n",
+            "     pre-commit check for stale vignettes, so you don't forget to precompile."
       )
 
       open_for_editing(src_path)
