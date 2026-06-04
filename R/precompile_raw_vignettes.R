@@ -1,20 +1,52 @@
-#' Precompile raw vignettes
+#' Precompile raw vignettes and articles
 #'
-#' Knits each `vignettes-raw/<n>.Rmd` to `vignettes/<n>.Rmd` and
+#' Knits each `vignettes-raw/<path>.Rmd` to `vignettes/<path>.Rmd` and
 #' injects a "do not edit" notice at the top of the output identifying
 #' the source and how to regenerate.
 #'
-#' Each vignette's figures are written to `vignettes/figures/` with filenames
-#' prefixed by the vignette name, preventing collisions when multiple
-#' vignettes are precompiled. After a successful knit, figures belonging
-#' to the vignette that weren't touched by the current run are treated as
-#' orphans (e.g. left over from a renamed or deleted chunk) and deleted.
+#' Sources may live in subdirectories of `vignettes-raw/`. The
+#' subdirectory structure is mirrored into `vignettes/`. In particular,
+#' sources under `vignettes-raw/articles/` become pkgdown *articles* at
+#' `vignettes/articles/` (web-only documentation excluded from the
+#' package tarball via `.Rbuildignore`), while sources at the top level
+#' become package vignettes.
+#'
+#' Figures are routed per source:
+#' - Vignette figures go to `vignettes/figures/`, prefixed by the
+#'   vignette name, and ship with the package.
+#' - Article figures go to rmarkdown's default location beneath
+#'   `vignettes/articles/`, so they sit inside the build-ignored article
+#'   subtree and are *not* shipped to CRAN. (pkgdown ignores a custom
+#'   `fig.path`, so articles must use the default; see Details.)
+#'
+#' After a successful knit, vignette figures matching the vignette's
+#' prefix that weren't touched by the current run are treated as orphans
+#' and deleted. Article figure directories are pruned wholesale before
+#' each knit instead (see Details).
+#'
+#' @section Articles vs vignettes:
+#' Whether a source is treated as an article is auto-detected from its
+#' path: anything under `articles/` (relative to `vignettes-raw/`) is an
+#' article. There is deliberately no separate flag — the source location
+#' is the single source of truth, so a no-argument call does the right
+#' thing across a mixed tree.
+#'
+#' @section Article figure handling:
+#' pkgdown re-knits articles when building the site and, per its docs,
+#' ignores any custom `fig.path` because the default is "a strong
+#' assumption of rmarkdown". We therefore let article figures land in the
+#' rmarkdown default location (`<name>_files/`) beside the output. Because
+#' that directory is recreated on every knit, we cannot use the mtime
+#' orphan heuristic reliably across renamed chunks; instead the whole
+#' `<name>_files/` directory is removed before knitting so each run starts
+#' clean.
 #'
 #' Run from the package root.
 #'
-#' @param names Character vector of vignette names (without extension).
-#'   If `NULL` (the default), all `.Rmd` files in `vignettes-raw/` are
-#'   rebuilt.
+#' @param names Character vector of source paths relative to
+#'   `vignettes-raw/`, without extension (e.g. `"intro"` or
+#'   `"articles/benchmark"`). If `NULL` (the default), all `.Rmd` files
+#'   anywhere under `vignettes-raw/` are rebuilt.
 #' @param quiet Passed to [knitr::knit()]. Suppresses the chunk-by-chunk
 #'   progress messages.
 #' @return Invisibly, the paths of the rebuilt output files.
@@ -32,7 +64,12 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
       }
 
       if (is.null(names)) {
-            src_files <- list.files(raw_dir, pattern = "\\.Rmd$", full.names = FALSE)
+            src_files <- list.files(
+                  raw_dir,
+                  pattern    = "\\.Rmd$",
+                  full.names = FALSE,
+                  recursive  = TRUE
+            )
             names <- tools::file_path_sans_ext(src_files)
       }
 
@@ -41,7 +78,9 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
             return(invisible(character()))
       }
 
-      # Make figure paths from the source resolve relative to vignettes/
+      # Make figure paths from the source resolve relative to vignettes/.
+      # (Articles override fig.path per-iteration; this base.dir still
+      # anchors relative figure paths to the vignettes/ tree.)
       old_base_dir <- knitr::opts_knit$get("base.dir")
       knitr::opts_knit$set(base.dir = normalizePath("vignettes", mustWork = TRUE))
       on.exit(knitr::opts_knit$set(base.dir = old_base_dir), add = TRUE)
@@ -50,11 +89,11 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
       old_fig_path <- knitr::opts_chunk$get("fig.path")
       on.exit(knitr::opts_chunk$set(fig.path = old_fig_path), add = TRUE)
 
-      fig_dir <- file.path("vignettes", "figures")
+      vig_fig_dir <- file.path("vignettes", "figures")
 
       outputs <- character(length(names))
       for (i in seq_along(names)) {
-            nm <- names[i]
+            nm  <- names[i]
             src <- file.path(raw_dir, paste0(nm, ".Rmd"))
             out <- file.path("vignettes", paste0(nm, ".Rmd"))
 
@@ -63,15 +102,38 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
                   next
             }
 
-            # Per-vignette fig.path prefix to prevent collisions across vignettes
-            knitr::opts_chunk$set(fig.path = paste0("figures/", nm, "-"))
+            is_article <- is_article_path(nm)
+
+            # Ensure the (possibly nested) output directory exists.
+            dir.create(dirname(out), recursive = TRUE, showWarnings = FALSE)
+
+            if (is_article) {
+                  # Articles: use rmarkdown's default figure location beneath
+                  # the article, since pkgdown ignores a custom fig.path. The
+                  # figures land inside the build-ignored articles/ subtree, so
+                  # they never reach CRAN. Wipe the figure dir up front for a
+                  # clean rebuild (no mtime orphan heuristic for articles).
+                  base_name <- basename(nm)
+                  fig_dir   <- file.path(dirname(out), paste0(base_name, "_files"))
+                  knitr::opts_chunk$set(fig.path = paste0(base_name, "_files/figure-html/"))
+                  if (dir.exists(fig_dir)) {
+                        unlink(fig_dir, recursive = TRUE)
+                  }
+            } else {
+                  # Vignettes: flat vignettes/figures/ with a per-vignette
+                  # prefix. Slashes in nm (shouldn't occur for top-level
+                  # vignettes, but be safe) are sanitized for the prefix.
+                  prefix <- gsub("/", "-", nm, fixed = TRUE)
+                  knitr::opts_chunk$set(fig.path = paste0("figures/", prefix, "-"))
+            }
 
             # Capture knit start time before knit runs so we can identify
-            # figure files that were not touched by this run (i.e. orphans).
-            # Subtract a small margin to handle coarse-mtime filesystems.
+            # vignette figure files not touched by this run (orphans).
+            # Subtract a small margin for coarse-mtime filesystems.
             knit_start <- Sys.time() - 1
 
-            message("Knitting ", src, " -> ", out)
+            message("Knitting ", src, " -> ", out,
+                    if (is_article) " (article)" else "")
             knitr::knit(
                   input  = src,
                   output = out,
@@ -80,20 +142,20 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
             )
             inject_generated_notice(path = out, source_path = src)
 
-            # Clean up orphaned figures: files matching this vignette's prefix
-            # that weren't written (or re-written) during this knit.
-            if (dir.exists(fig_dir)) {
-                  this_vignette_figs <- list.files(
-                        fig_dir,
-                        pattern    = paste0("^", nm, "-"),
+            # Orphan cleanup applies only to the shared vignette figures dir.
+            # Article figures were wiped pre-knit, so nothing to prune here.
+            if (!is_article && dir.exists(vig_fig_dir)) {
+                  prefix <- gsub("/", "-", nm, fixed = TRUE)
+                  this_figs <- list.files(
+                        vig_fig_dir,
+                        pattern    = paste0("^", prefix, "-"),
                         full.names = TRUE
                   )
-                  if (length(this_vignette_figs) > 0L) {
-                        orphans <- this_vignette_figs[
-                              file.mtime(this_vignette_figs) < knit_start
-                        ]
+                  if (length(this_figs) > 0L) {
+                        orphans <- this_figs[file.mtime(this_figs) < knit_start]
                         if (length(orphans) > 0L) {
-                              message("Removing ", length(orphans), " orphaned figure(s): ",
+                              message("Removing ", length(orphans),
+                                      " orphaned figure(s): ",
                                       paste(basename(orphans), collapse = ", "))
                               file.remove(orphans)
                         }
@@ -104,4 +166,44 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
       }
 
       invisible(outputs[nzchar(outputs)])
+}
+
+#' Is a source path (relative to vignettes-raw/, no extension) an article?
+#' @noRd
+is_article_path <- function(nm) {
+      parts <- strsplit(nm, "/", fixed = TRUE)[[1]]
+      length(parts) >= 2L && parts[1] == "articles"
+}
+
+#' Validate a vignette/article name.
+#'
+#' A name is valid if it is either a bare name (a top-level package
+#' vignette, no `/`) or lives under `articles/` (a pkgdown article, at any
+#' depth). Any other subdirectory is rejected: R's vignette machinery is
+#' flat, so a non-`articles/` subdirectory could never be a package
+#' vignette, and rawvignette enforces `articles/` as the single article
+#' location by convention (matching usethis::use_article()).
+#'
+#' Errors with a clear message on an invalid name. Returns `nm` invisibly.
+#' @noRd
+validate_raw_vignette_name <- function(nm) {
+      parts <- strsplit(nm, "/", fixed = TRUE)[[1]]
+
+      if (length(parts) == 1L) {
+            return(invisible(nm))           # bare name: a vignette
+      }
+      if (parts[1] == "articles") {
+            return(invisible(nm))           # under articles/: an article
+      }
+
+      stop(
+            "Invalid name: \"", nm, "\".\n",
+            "Names must be either a bare vignette name (e.g. \"intro\") or ",
+            "an article\nunder articles/ (e.g. \"articles/", parts[length(parts)],
+            "\"). Other subdirectories\naren't supported: R's vignette ",
+            "machinery is flat, so a non-articles/\nsubdirectory can't be a ",
+            "package vignette. Did you mean \"articles/",
+            parts[length(parts)], "\"?",
+            call. = FALSE
+      )
 }

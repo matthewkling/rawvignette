@@ -2,7 +2,7 @@
 % Please edit documentation in R/check_raw_vignettes.R
 \name{check_raw_vignettes}
 \alias{check_raw_vignettes}
-\title{Check whether raw vignettes are in sync with their knitted outputs}
+\title{Check whether raw vignettes/articles are in sync with their outputs}
 \usage{
 check_raw_vignettes()
 }
@@ -10,12 +10,13 @@ check_raw_vignettes()
 A data frame with columns \code{name}, \code{source}, \code{output},
 \code{source_mtime}, \code{output_mtime}, and \code{status} (one of \code{"fresh"},
 \code{"stale"}, or \code{"missing_output"}). Returned invisibly. Also emits
-a message summarizing any stale vignettes.
+a message summarizing any stale items.
 }
 \description{
-Compares modification times of each \verb{vignettes-raw/<n>.Rmd} against
-its corresponding \verb{vignettes/<n>.Rmd}. A source file newer than its
-output means the output is stale and should be regenerated with
+Compares modification times of each \verb{vignettes-raw/<path>.Rmd}
+(recursively, so articles under \verb{articles/} are included) against its
+corresponding \verb{vignettes/<path>.Rmd}. A source newer than its output
+means the output is stale and should be regenerated with
 \code{\link[=precompile_raw_vignettes]{precompile_raw_vignettes()}}.
 }
 \section{What this catches}{
@@ -31,17 +32,17 @@ several categories of true staleness. Treat its "fresh" verdict as a
 weak guarantee, not a strong one. Specifically, it cannot detect:
 \itemize{
 \item \strong{Changes to package source code.} If you edit \code{R/foo.R} so that
-\code{foo()} now returns different output, the vignette's captured output
-is logically stale even though \verb{vignettes-raw/<n>.Rmd} is unchanged.
+\code{foo()} now returns different output, the captured output is
+logically stale even though the source \code{.Rmd} is unchanged.
 \item \strong{Changes to data files.} Updates to \verb{inst/extdata/}, \verb{data/}, or
-any external file the vignette reads from will not be detected.
-\item \strong{Changes to dependency package versions.} If a package the vignette
-uses changes behavior between rebuilds, the captured output may no
-longer reflect what the code now produces.
+any external file the source reads from will not be detected.
+\item \strong{Changes to dependency package versions.} If a dependency changes
+behavior between rebuilds, the captured output may no longer reflect
+what the code now produces.
 \item \strong{Touched-but-unchanged sources.} Opening and re-saving the source
-without editing it will update its mtime and falsely report staleness.
+without editing it updates its mtime and falsely reports staleness.
 \item \strong{Branch switches.} \verb{git checkout} updates file mtimes, which can
-make every vignette look stale immediately after switching branches.
+make everything look stale immediately after switching branches.
 }
 
 For a robust freshness guarantee, the only reliable approach is to

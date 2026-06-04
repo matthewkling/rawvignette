@@ -16,7 +16,6 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
 Imports:
     knitr,
     tools
@@ -26,3 +25,4 @@ Suggests:
 Config/testthat/edition: 3
 URL: https://github.com/matthewkling/rawvignette
 BugReports: https://github.com/matthewkling/rawvignette/issues
+Config/roxygen2/version: 8.0.0

@@ -1,8 +1,9 @@
-#' Check whether raw vignettes are in sync with their knitted outputs
+#' Check whether raw vignettes/articles are in sync with their outputs
 #'
-#' Compares modification times of each `vignettes-raw/<n>.Rmd` against
-#' its corresponding `vignettes/<n>.Rmd`. A source file newer than its
-#' output means the output is stale and should be regenerated with
+#' Compares modification times of each `vignettes-raw/<path>.Rmd`
+#' (recursively, so articles under `articles/` are included) against its
+#' corresponding `vignettes/<path>.Rmd`. A source newer than its output
+#' means the output is stale and should be regenerated with
 #' [precompile_raw_vignettes()].
 #'
 #' @section What this catches:
@@ -15,17 +16,17 @@
 #' weak guarantee, not a strong one. Specifically, it cannot detect:
 #'
 #' - **Changes to package source code.** If you edit `R/foo.R` so that
-#'   `foo()` now returns different output, the vignette's captured output
-#'   is logically stale even though `vignettes-raw/<n>.Rmd` is unchanged.
+#'   `foo()` now returns different output, the captured output is
+#'   logically stale even though the source `.Rmd` is unchanged.
 #' - **Changes to data files.** Updates to `inst/extdata/`, `data/`, or
-#'   any external file the vignette reads from will not be detected.
-#' - **Changes to dependency package versions.** If a package the vignette
-#'   uses changes behavior between rebuilds, the captured output may no
-#'   longer reflect what the code now produces.
+#'   any external file the source reads from will not be detected.
+#' - **Changes to dependency package versions.** If a dependency changes
+#'   behavior between rebuilds, the captured output may no longer reflect
+#'   what the code now produces.
 #' - **Touched-but-unchanged sources.** Opening and re-saving the source
-#'   without editing it will update its mtime and falsely report staleness.
+#'   without editing it updates its mtime and falsely reports staleness.
 #' - **Branch switches.** `git checkout` updates file mtimes, which can
-#'   make every vignette look stale immediately after switching branches.
+#'   make everything look stale immediately after switching branches.
 #'
 #' For a robust freshness guarantee, the only reliable approach is to
 #' run [precompile_raw_vignettes()] whenever any plausibly-relevant input
@@ -34,7 +35,7 @@
 #' @return A data frame with columns `name`, `source`, `output`,
 #'   `source_mtime`, `output_mtime`, and `status` (one of `"fresh"`,
 #'   `"stale"`, or `"missing_output"`). Returned invisibly. Also emits
-#'   a message summarizing any stale vignettes.
+#'   a message summarizing any stale items.
 #' @export
 check_raw_vignettes <- function() {
       if (!file.exists("DESCRIPTION")) {
@@ -48,14 +49,21 @@ check_raw_vignettes <- function() {
             return(invisible(NULL))
       }
 
-      src_files <- list.files(raw_dir, pattern = "\\.Rmd$", full.names = FALSE)
+      # Recurse so articles/ (and any other subdirs) are included.
+      src_files <- list.files(
+            raw_dir,
+            pattern    = "\\.Rmd$",
+            full.names = FALSE,
+            recursive  = TRUE
+      )
       if (length(src_files) == 0L) {
             message("No raw vignettes found.")
             return(invisible(NULL))
       }
 
-      names <- tools::file_path_sans_ext(src_files)
+      names     <- tools::file_path_sans_ext(src_files)
       src_paths <- file.path(raw_dir, src_files)
+      # Mirror the relative path into vignettes/ rather than flattening.
       out_paths <- file.path("vignettes", src_files)
 
       src_mtime <- file.mtime(src_paths)

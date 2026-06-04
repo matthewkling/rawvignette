@@ -2,35 +2,49 @@
 % Please edit documentation in R/use_raw_vignette.R
 \name{use_raw_vignette}
 \alias{use_raw_vignette}
-\title{Scaffold a raw (precompiled) vignette}
+\title{Scaffold a raw (precompiled) vignette or article}
 \usage{
 use_raw_vignette(name, title = NULL)
 }
 \arguments{
-\item{name}{Vignette name, without extension.}
+\item{name}{Vignette or article name, without extension. Use an
+\verb{articles/} prefix (e.g. \code{"articles/benchmark"}) to scaffold an
+article.}
 
-\item{title}{Vignette title. Defaults to \code{name}. Ignored if migrating
-an existing vignette (the existing title is preserved).}
+\item{title}{Title. Defaults to the basename of \code{name}. Ignored if
+migrating an existing file (the existing title is preserved).}
 }
 \value{
 Invisibly, the path to the raw source file.
 }
 \description{
-Creates the infrastructure for a precompiled vignette:
-\itemize{
-\item \verb{vignettes-raw/<n>.Rmd} (the editable source)
-\item An entry in \code{.Rbuildignore} for \verb{vignettes-raw/}
-\item \verb{vignettes/figures/} directory (where generated figures will land)
-}
+Creates the infrastructure for a precompiled vignette or pkgdown
+article. Whether you get a vignette or an article is determined by
+\code{name}: a name under \verb{articles/} (e.g. \code{"articles/benchmark"})
+scaffolds a web-only pkgdown article; any other name scaffolds a
+package vignette.
 }
 \details{
-If \verb{vignettes/<n>.Rmd} already exists (e.g. from a previous
-\code{usethis::use_vignette()} call), it is migrated to \verb{vignettes-raw/<n>.Rmd}
-rather than overwritten.
+For a \strong{vignette} (\code{name = "intro"}):
+\itemize{
+\item \code{vignettes-raw/intro.Rmd} (the editable source)
+\item \verb{^vignettes-raw$} in \code{.Rbuildignore}
+\item \verb{vignettes/figures/} (where generated figures land; ships with pkg)
+}
 
-After running this, edit the skeleton in \verb{vignettes-raw/<n>.Rmd}, then
-call \code{\link[=precompile_raw_vignettes]{precompile_raw_vignettes()}} to generate the shipped \verb{vignettes/<n>.Rmd}.
+For an \strong{article} (\code{name = "articles/benchmark"}):
+\itemize{
+\item \code{vignettes-raw/articles/benchmark.Rmd} (the editable source)
+\item \verb{^vignettes-raw$} and \verb{^vignettes/articles$} in \code{.Rbuildignore}
+(the latter keeps the rendered article and its figures out of the
+package tarball, so compute-heavy articles never burden CRAN)
+\item The skeleton omits the \verb{vignette:} YAML block, so R does not treat
+it as a package vignette.
+}
 
-In interactive sessions, the source file is opened for editing (in RStudio
-if available, otherwise via \code{utils::file.edit()}).
+If \verb{vignettes/<name>.Rmd} already exists, it is migrated to
+\verb{vignettes-raw/<name>.Rmd} rather than overwritten.
+
+After running this, edit the skeleton, then call
+\code{\link[=precompile_raw_vignettes]{precompile_raw_vignettes()}} to generate the shipped output.
 }

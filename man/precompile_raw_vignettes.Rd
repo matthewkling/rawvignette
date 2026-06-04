@@ -2,14 +2,15 @@
 % Please edit documentation in R/precompile_raw_vignettes.R
 \name{precompile_raw_vignettes}
 \alias{precompile_raw_vignettes}
-\title{Precompile raw vignettes}
+\title{Precompile raw vignettes and articles}
 \usage{
 precompile_raw_vignettes(names = NULL, quiet = TRUE)
 }
 \arguments{
-\item{names}{Character vector of vignette names (without extension).
-If \code{NULL} (the default), all \code{.Rmd} files in \verb{vignettes-raw/} are
-rebuilt.}
+\item{names}{Character vector of source paths relative to
+\verb{vignettes-raw/}, without extension (e.g. \code{"intro"} or
+\code{"articles/benchmark"}). If \code{NULL} (the default), all \code{.Rmd} files
+anywhere under \verb{vignettes-raw/} are rebuilt.}
 
 \item{quiet}{Passed to \code{\link[knitr:knit]{knitr::knit()}}. Suppresses the chunk-by-chunk
 progress messages.}
@@ -18,16 +19,53 @@ progress messages.}
 Invisibly, the paths of the rebuilt output files.
 }
 \description{
-Knits each \verb{vignettes-raw/<n>.Rmd} to \verb{vignettes/<n>.Rmd} and
+Knits each \verb{vignettes-raw/<path>.Rmd} to \verb{vignettes/<path>.Rmd} and
 injects a "do not edit" notice at the top of the output identifying
 the source and how to regenerate.
 }
 \details{
-Each vignette's figures are written to \verb{vignettes/figures/} with filenames
-prefixed by the vignette name, preventing collisions when multiple
-vignettes are precompiled. After a successful knit, figures belonging
-to the vignette that weren't touched by the current run are treated as
-orphans (e.g. left over from a renamed or deleted chunk) and deleted.
+Sources may live in subdirectories of \verb{vignettes-raw/}. The
+subdirectory structure is mirrored into \verb{vignettes/}. In particular,
+sources under \verb{vignettes-raw/articles/} become pkgdown \emph{articles} at
+\verb{vignettes/articles/} (web-only documentation excluded from the
+package tarball via \code{.Rbuildignore}), while sources at the top level
+become package vignettes.
+
+Figures are routed per source:
+\itemize{
+\item Vignette figures go to \verb{vignettes/figures/}, prefixed by the
+vignette name, and ship with the package.
+\item Article figures go to rmarkdown's default location beneath
+\verb{vignettes/articles/}, so they sit inside the build-ignored article
+subtree and are \emph{not} shipped to CRAN. (pkgdown ignores a custom
+\code{fig.path}, so articles must use the default; see Details.)
+}
+
+After a successful knit, vignette figures matching the vignette's
+prefix that weren't touched by the current run are treated as orphans
+and deleted. Article figure directories are pruned wholesale before
+each knit instead (see Details).
+}
+\section{Articles vs vignettes}{
+
+Whether a source is treated as an article is auto-detected from its
+path: anything under \verb{articles/} (relative to \verb{vignettes-raw/}) is an
+article. There is deliberately no separate flag — the source location
+is the single source of truth, so a no-argument call does the right
+thing across a mixed tree.
+}
+
+\section{Article figure handling}{
+
+pkgdown re-knits articles when building the site and, per its docs,
+ignores any custom \code{fig.path} because the default is "a strong
+assumption of rmarkdown". We therefore let article figures land in the
+rmarkdown default location (\verb{<name>_files/}) beside the output. Because
+that directory is recreated on every knit, we cannot use the mtime
+orphan heuristic reliably across renamed chunks; instead the whole
+\verb{<name>_files/} directory is removed before knitting so each run starts
+clean.
 
 Run from the package root.
 }
+

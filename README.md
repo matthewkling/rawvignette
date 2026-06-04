@@ -3,8 +3,9 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-Streamlined workflow for pre-compiled R package vignettes, for package
-authors whose vignettes need to do intensive computational work.
+Streamlined workflow for pre-compiled R package vignettes and pkgdown
+articles, for package authors whose documentation needs to do intensive
+computational work.
 
 ## The problem
 
@@ -19,6 +20,7 @@ approaches for pre-computed vignettes have some friction points, like setup
 and configuration complexities, incompatibility with certain CI environments,
 or file formats that don't play nicely with IDEs like RStudio.
 
+
 ## The solution
 
 `rawvignette` tries to make the pre-compiled vignette workflow as streamlined
@@ -32,11 +34,18 @@ splits rendering into two stages: a *source* stage with live, executable code
 outputs have been inlined. Downstream tools &mdash; `R CMD check`, CRAN, pkgdown 
 &mdash; only ever see the staged form, so they never re-execute your intensive code.
 
+The same workflow covers both **package vignettes** (shipped with the package,
+discoverable via `vignette()`, visible on CRAN) and **pkgdown articles**
+(web-only, excluded from the package tarball). Which one you get is determined
+by where the source lives: a source under `vignettes-raw/articles/` becomes an
+article; anything else becomes a vignette. There's no separate flag &mdash; the
+path is the single source of truth, so a no-argument
+`precompile_raw_vignettes()` does the right thing across a mixed tree.
+
+
 ## Installation
 
 ```r
-remotes::install_github("matthewkling/rawvignette")
-# or
 pak::pak("matthewkling/rawvignette")
 ```
 
@@ -46,27 +55,38 @@ pak::pak("matthewkling/rawvignette")
 your-package/
 ├── vignettes/
 │   ├── myvignette.Rmd          # knitted; committed; shipped
-│   └── figures/                # generated figures; committed; shipped
+│   ├── figures/                # vignette figures; committed; shipped
+│   └── articles/               # web-only; .Rbuildignored (NOT shipped)
+│       ├── myarticle.Rmd        #   knitted; committed; web-only
+│       └── myarticle_files/     #   article figures; web-only
 ├── vignettes-raw/
-│   └── myvignette.Rmd          # real source; committed; NOT shipped
-└── .Rbuildignore               # includes ^vignettes-raw$
+│   ├── myvignette.Rmd          # real vignette source; committed; NOT shipped
+│   └── articles/
+│       └── myarticle.Rmd        # real article source; committed; NOT shipped
+└── .Rbuildignore               # includes ^vignettes-raw$ and ^vignettes/articles$
 ```
+
+Article figures live inside the build-ignored `vignettes/articles/` subtree
+(at rmarkdown's default `<name>_files/` location, since pkgdown ignores a
+custom `fig.path`), so a single `^vignettes/articles$` entry keeps both the
+rendered article and its figures out of the package tarball. Vignette figures,
+by contrast, sit in the shipped `vignettes/figures/`.
 
 ## Functions
 
-- `use_raw_vignette()` &ndash; scaffold a new precompiled vignette or migrate an existing one
-- `precompile_raw_vignettes()` &ndash; knit `vignettes-raw/` sources to `vignettes/` outputs
-- `check_raw_vignettes()` &ndash; flag precompiled vignettes whose source mtime is newer than their output
+- `use_raw_vignette()` &ndash; scaffold a new precompiled vignette or article, or migrate an existing one. Pass an `articles/` prefix (e.g. `use_raw_vignette("articles/benchmark")`) to scaffold an article.
+- `precompile_raw_vignettes()` &ndash; knit `vignettes-raw/` sources (recursively, including `articles/`) to their `vignettes/` outputs
+- `check_raw_vignettes()` &ndash; flag precompiled vignettes and articles whose source mtime is newer than their output
 
 ## Workflow
 
-1. Call `use_raw_vignette()` to set up the scaffolding for a new vignette,
-   or to migrate an existing vignette to the pre-compiled workflow.
-2. Edit `vignettes-raw/<name>.Rmd`. This is the real source code for your
-   vignette; use your IDE, run chunks interactively, iterate freely.
-3. Run `precompile_raw_vignettes()` to (re)generate the shipped
-   `vignettes/<name>.Rmd` and any figures.
-4. Commit changes to both files and any figure PNGs.
+1. Call `use_raw_vignette()` to set up the scaffolding for a new vignette or
+   article, or to migrate an existing one to the pre-compiled workflow.
+2. Edit `vignettes-raw/<name>.Rmd`. This is the real source code; use your
+   IDE, run chunks interactively, iterate freely.
+3. Run `precompile_raw_vignettes()` to (re)generate the shipped output(s)
+   and any figures.
+4. Commit changes to both files and any figure files.
 5. Before a release, use `check_raw_vignettes()` to sanity-check freshness.
 
 ## Comparison to other pre-compilation approaches
@@ -77,7 +97,9 @@ just with the source renamed `.Rmd.orig` rather than placed in a sibling
 directory. The rename strips IDE recognition (in RStudio you lose syntax
 highlighting, chunk controls, and the Knit button). `rawvignette` keeps the
 source as `.Rmd` in `vignettes-raw/` so tools treat it normally, and
-streamlines setup and compilation via helper functions.
+streamlines setup and compilation via helper functions. It also handles
+figure routing, orphan cleanup, `.Rbuildignore` management, and a freshness
+check &mdash; the parts the convention leaves you to script per-package.
 - **`knitr` chunk caching (`cache = TRUE`)**: caches chunk results in a
 sibling `_cache/` directory and skips re-execution on subsequent knits.
 Useful for fast local iteration, but the cache directory isn't shipped
@@ -89,14 +111,20 @@ caching, with finer control over what's cached and when. Same fundamental
 limitation: caches are designed for local iteration, not for bundling
 into the shipped package. CRAN still re-executes unless you configure
 that explicitly.
-- **`R.rsp` pre-built vignettes**: ships pre-rendered HTML as the vignette.
-Works, but pkgdown can't re-style the vignette to match your site theme
-since it's already baked. `rawvignette`'s output is still an `.Rmd`, which
-pkgdown can render with the rest of the site.
-- **Articles (`usethis::use_article()`)**: the pkgdown-only alternative.
-Good for ancillary content that doesn't need to ship with the package.
-Not good for core tutorials: articles aren't installed locally, don't
-appear on CRAN, and aren't discoverable via `vignette()`. Use
-`rawvignette` when the content deserves first-class status.
+- **`R.rsp` static vignettes**: ships a pre-rendered PDF or self-contained
+HTML file as the vignette (via the `R.rsp::asis` engine). Works well for
+content built outside the R Markdown pipeline, but the baked artifact isn't
+something pkgdown can re-render into your site theme. `rawvignette`'s output
+is still an `.Rmd`, which pkgdown renders with the rest of the site.
+- **Articles (`usethis::use_article()`)**: creates a plain (non-precompiled)
+pkgdown article &mdash; web-only, `.Rbuildignore`d, not installed locally or on
+CRAN. [R Packages 2e][2] recommends articles precisely when one "really
+demands lots of graphics." `rawvignette` is complementary, not competing: it
+*adds precompilation* to that scenario, so a graphics- or compute-heavy
+article doesn't get re-executed by pkgdown on every build. Use a `rawvignette`
+vignette when the content deserves first-class (CRAN-installed, `vignette()`-
+discoverable) status, and a `rawvignette` article when it's web-only but still
+expensive to build.
 
 [1]: https://ropensci.org/blog/2019/12/08/precompute-vignettes/
+[2]: https://r-pkgs.org/vignettes.html
