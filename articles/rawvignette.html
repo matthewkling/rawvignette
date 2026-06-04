@@ -61,16 +61,16 @@
     
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/matthewkling/rawvignette" class="external-link">rawvignette</a></span><span class="op">)</span></span></code></pre></div>
-<p>By default, R rebuilds your vignettes every time the package is built
-– during <code>R CMD check</code>, on CRAN, on GitHub Actions, and when
-pkgdown generates your site. Usually that is a good thing: it keeps the
-rendered output honest.</p>
 <div class="section level2">
 <h2 id="the-problem">The problem<a class="anchor" aria-label="anchor" href="#the-problem"></a>
 </h2>
-<p>But when a vignette (or a pkgdown article) does heavy work – a long
-or memory-intensive computation, a call to a rate-limited API, a large
-dataset – rebuilding it everywhere, every time, can become annoying or
+<p>By default, R rebuilds your vignettes every time the package is built
+– during <code>R CMD check</code>, on CRAN, on GitHub Actions, and when
+pkgdown generates your site. Usually that is a good thing: it keeps the
+rendered output in sync with the packge source code.</p>
+<p>But when a vignette or pkgdown article does heavy work (a long or
+memory-intensive computation, a call to a rate-limited API, a large
+dataset) rebuilding it everywhere, every time, can become annoying or
 impossible.</p>
 <p>Here is the kind of chunk that causes the trouble. Imagine the
 <code><a href="https://rdrr.io/r/base/Sys.sleep.html" class="external-link">Sys.sleep()</a></code> below is an intensive simulation that depends
@@ -90,8 +90,9 @@ vignette is built.</p>
 <div class="section level2">
 <h2 id="the-idea">The idea<a class="anchor" aria-label="anchor" href="#the-idea"></a>
 </h2>
-<p>The goal of <code>rawvignette</code> is to build the vignette once,
-on your machine, and ship the already-computed result.</p>
+<p>The alternative enabled by <code>rawvignette</code> is to build the
+vignette once, on your machine, and ship the already-computed
+result.</p>
 <p>The workflow splits a vignette into two stages:</p>
 <ul>
 <li>A <strong>source</strong> in <code>vignettes-raw/</code>, with live,
@@ -138,7 +139,8 @@ directory.</p>
 <span><span class="co">#&gt; Next steps:</span></span>
 <span><span class="co">#&gt;   1. Edit vignettes-raw/intro.Rmd</span></span>
 <span><span class="co">#&gt;   2. Run: `rawvignette::precompile_raw_vignettes()`</span></span>
-<span><span class="co">#&gt;   3. Commit vignettes-raw/intro.Rmd, vignettes/intro.Rmd, and any new figures.  4. [OPTIONAL] Run `rawvignette::use_raw_vignette_hook()` to configure a</span></span>
+<span><span class="co">#&gt;   3. Commit vignettes-raw/intro.Rmd, vignettes/intro.Rmd, and any new figures.</span></span>
+<span><span class="co">#&gt;   4. [OPTIONAL] Run `rawvignette::use_raw_vignette_hook()` to configure a</span></span>
 <span><span class="co">#&gt;      pre-commit check for stale vignettes, so you don't forget to precompile.</span></span></code></pre></div>
 <p>That leaves you with a skeleton source to edit:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -182,7 +184,7 @@ in:</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">list.files</a></span><span class="op">(</span><span class="st">"vignettes"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "figures"   "intro.Rmd"</span></span>
 <span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="st">"vignettes/intro.Rmd"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">out</span>, <span class="fl">20</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">out</span>, <span class="fl">25</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; title: "Introduction"</span></span>
 <span><span class="co">#&gt; output: rmarkdown::html_vignette</span></span>
@@ -202,7 +204,10 @@ in:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; ``` r</span></span>
-<span><span class="co">#&gt; # Pretend this is slow:</span></span></code></pre>
+<span><span class="co">#&gt; # Pretend this is slow:</span></span>
+<span><span class="co">#&gt; nrow(mtcars)</span></span>
+<span><span class="co">#&gt; #&gt; [1] 32</span></span>
+<span><span class="co">#&gt; ```</span></span></code></pre>
 <p>Notice the generated notice at the top: editing
 <code>vignettes/intro.Rmd</code> directly would be a mistake, because
 the next precompile overwrites it. The source of truth is

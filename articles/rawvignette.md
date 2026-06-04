@@ -5,16 +5,16 @@
 library(rawvignette)
 ```
 
+## The problem
+
 By default, R rebuilds your vignettes every time the package is built –
 during `R CMD check`, on CRAN, on GitHub Actions, and when pkgdown
 generates your site. Usually that is a good thing: it keeps the rendered
-output honest.
+output in sync with the packge source code.
 
-## The problem
-
-But when a vignette (or a pkgdown article) does heavy work – a long or
+But when a vignette or pkgdown article does heavy work (a long or
 memory-intensive computation, a call to a rate-limited API, a large
-dataset – rebuilding it everywhere, every time, can become annoying or
+dataset) rebuilding it everywhere, every time, can become annoying or
 impossible.
 
 Here is the kind of chunk that causes the trouble. Imagine the
@@ -39,8 +39,8 @@ vignette is built.
 
 ## The idea
 
-The goal of `rawvignette` is to build the vignette once, on your
-machine, and ship the already-computed result.
+The alternative enabled by `rawvignette` is to build the vignette once,
+on your machine, and ship the already-computed result.
 
 The workflow splits a vignette into two stages:
 
@@ -89,7 +89,8 @@ use_raw_vignette("intro", title = "Introduction")
 #> Next steps:
 #>   1. Edit vignettes-raw/intro.Rmd
 #>   2. Run: `rawvignette::precompile_raw_vignettes()`
-#>   3. Commit vignettes-raw/intro.Rmd, vignettes/intro.Rmd, and any new figures.  4. [OPTIONAL] Run `rawvignette::use_raw_vignette_hook()` to configure a
+#>   3. Commit vignettes-raw/intro.Rmd, vignettes/intro.Rmd, and any new figures.
+#>   4. [OPTIONAL] Run `rawvignette::use_raw_vignette_hook()` to configure a
 #>      pre-commit check for stale vignettes, so you don't forget to precompile.
 ```
 
@@ -145,7 +146,7 @@ The shipped vignette now exists, with the computed output baked in:
 list.files("vignettes")
 #> [1] "figures"   "intro.Rmd"
 out <- readLines("vignettes/intro.Rmd")
-cat(head(out, 20), sep = "\n")
+cat(head(out, 25), sep = "\n")
 ```
 
     #> ---
@@ -168,6 +169,9 @@ cat(head(out, 20), sep = "\n")
     #> 
     #> ``` r
     #> # Pretend this is slow:
+    #> nrow(mtcars)
+    #> #> [1] 32
+    #> ```
 
 Notice the generated notice at the top: editing `vignettes/intro.Rmd`
 directly would be a mistake, because the next precompile overwrites it.
