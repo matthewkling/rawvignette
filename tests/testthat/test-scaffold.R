@@ -2,7 +2,7 @@ test_that("use_raw_vignette creates expected structure in fresh package", {
       withr::with_tempdir({
             writeLines(c("Package: testpkg", "Version: 0.1.0"), "DESCRIPTION")
 
-            use_raw_vignette("intro", title = "Introduction")
+            suppressMessages(use_raw_vignette("intro", title = "Introduction"))
 
             expect_true(file.exists("vignettes-raw/intro.Rmd"))
             expect_true(dir.exists("vignettes/figures"))
@@ -21,7 +21,7 @@ test_that("vignette skeleton contains a vignette: block", {
       withr::with_tempdir({
             writeLines(c("Package: testpkg", "Version: 0.1.0"), "DESCRIPTION")
 
-            use_raw_vignette("intro", title = "Introduction")
+            suppressMessages(use_raw_vignette("intro", title = "Introduction"))
 
             src <- readLines("vignettes-raw/intro.Rmd")
             expect_true(any(grepl("VignetteIndexEntry", src)))
@@ -41,7 +41,7 @@ test_that("use_raw_vignette migrates existing vignette", {
                   "Original content"
             ), "vignettes/existing.Rmd")
 
-            use_raw_vignette("existing")
+            suppressMessages(use_raw_vignette("existing"))
 
             expect_false(file.exists("vignettes/existing.Rmd"))
             expect_true(file.exists("vignettes-raw/existing.Rmd"))
@@ -62,7 +62,7 @@ test_that("use_raw_vignette scaffolds an article under articles/", {
       withr::with_tempdir({
             writeLines(c("Package: testpkg", "Version: 0.1.0"), "DESCRIPTION")
 
-            use_raw_vignette("articles/benchmark", title = "Benchmark")
+            suppressMessages(use_raw_vignette("articles/benchmark", title = "Benchmark"))
 
             expect_true(file.exists("vignettes-raw/articles/benchmark.Rmd"))
 
@@ -76,7 +76,7 @@ test_that("article skeleton omits the vignette: block", {
       withr::with_tempdir({
             writeLines(c("Package: testpkg", "Version: 0.1.0"), "DESCRIPTION")
 
-            use_raw_vignette("articles/benchmark", title = "Benchmark")
+            suppressMessages(use_raw_vignette("articles/benchmark", title = "Benchmark"))
 
             src <- readLines("vignettes-raw/articles/benchmark.Rmd")
             # The defining property: R must NOT treat this as a vignette.
@@ -92,7 +92,7 @@ test_that("article title defaults to the basename, not the full path", {
       withr::with_tempdir({
             writeLines(c("Package: testpkg", "Version: 0.1.0"), "DESCRIPTION")
 
-            use_raw_vignette("articles/benchmark")
+            suppressMessages(use_raw_vignette("articles/benchmark"))
 
             src <- readLines("vignettes-raw/articles/benchmark.Rmd")
             expect_true(any(grepl('title: "benchmark"', src, fixed = TRUE)))
@@ -116,12 +116,60 @@ test_that("use_raw_vignette migrates an existing vignette into a subdirectory", 
                   "Original article content"
             ), "vignettes/articles/existing.Rmd")
 
-            use_raw_vignette("articles/existing")
+            suppressMessages(use_raw_vignette("articles/existing"))
 
             expect_false(file.exists("vignettes/articles/existing.Rmd"))
             expect_true(file.exists("vignettes-raw/articles/existing.Rmd"))
             src <- readLines("vignettes-raw/articles/existing.Rmd")
             expect_true(any(grepl("Original article content", src)))
+      })
+})
+
+# ---- Orphaned-sibling warning on migration -------------------------------
+
+test_that("migration warns about a data sibling left behind", {
+      withr::with_tempdir({
+            writeLines(c("Package: testpkg", "Version: 0.1.0"), "DESCRIPTION")
+            dir.create("vignettes/articles", recursive = TRUE)
+            writeLines(c("---", 'title: "A"', "---", "", "Body"),
+                       "vignettes/articles/bench.Rmd")
+            writeLines("a,b\n1,2", "vignettes/articles/data.csv")
+
+            msgs <- testthat::capture_messages(
+                  use_raw_vignette("articles/bench"))
+            expect_true(any(grepl("data\\.csv", msgs)))
+            expect_true(any(grepl("remain in", msgs)))
+            # The data file is NOT moved (we only warn).
+            expect_true(file.exists("vignettes/articles/data.csv"))
+      })
+})
+
+test_that("migration does not warn about other vignettes/structural dirs", {
+      withr::with_tempdir({
+            writeLines(c("Package: testpkg", "Version: 0.1.0"), "DESCRIPTION")
+            dir.create("vignettes/figures", recursive = TRUE)
+            dir.create("vignettes/articles")
+            writeLines(c("---", 'title: "V"', "---", "", "Body"),
+                       "vignettes/intro.Rmd")
+            writeLines(c("---", 'title: "O"', "---", "", "Body"),
+                       "vignettes/other.Rmd")
+
+            msgs <- testthat::capture_messages(use_raw_vignette("intro"))
+            # other.Rmd, articles/, figures/ are not intro's data deps.
+            expect_false(any(grepl("remain in", msgs)))
+      })
+})
+
+test_that("migration warns about a top-level data file too", {
+      withr::with_tempdir({
+            writeLines(c("Package: testpkg", "Version: 0.1.0"), "DESCRIPTION")
+            dir.create("vignettes")
+            writeLines(c("---", 'title: "V"', "---", "", "Body"),
+                       "vignettes/intro.Rmd")
+            writeLines("x", "vignettes/lookup.rds")
+
+            msgs <- testthat::capture_messages(use_raw_vignette("intro"))
+            expect_true(any(grepl("lookup\\.rds", msgs)))
       })
 })
 
@@ -141,7 +189,7 @@ test_that("use_raw_vignette accepts nested articles", {
       withr::with_tempdir({
             writeLines(c("Package: testpkg", "Version: 0.1.0"), "DESCRIPTION")
 
-            use_raw_vignette("articles/advanced/deep", title = "Deep")
+            suppressMessages(use_raw_vignette("articles/advanced/deep", title = "Deep"))
 
             expect_true(file.exists("vignettes-raw/articles/advanced/deep.Rmd"))
             src <- readLines("vignettes-raw/articles/advanced/deep.Rmd")

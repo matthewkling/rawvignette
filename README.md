@@ -20,12 +20,12 @@ approaches for pre-computed vignettes have some friction points, like setup
 and configuration complexities, incompatibility with certain CI environments,
 or file formats that don't play nicely with IDEs like RStudio.
 
-
 ## The solution
 
 `rawvignette` tries to make the pre-compiled vignette workflow as streamlined
 as possible, including setup and iteration, in the same way that 
-`usethis::use_vignette()` does for standard vignettes.
+`usethis::use_vignette()` and `usethis::use_article()` does for standard 
+vignettes and articles.
 
 Rather than running your vignette code at package-build time, the workflow
 splits rendering into two stages: a *source* stage with live, executable code
@@ -42,10 +42,11 @@ article; anything else becomes a vignette. There's no separate flag &mdash; the
 path is the single source of truth, so a no-argument
 `precompile_raw_vignettes()` does the right thing across a mixed tree.
 
-
 ## Installation
 
 ```r
+remotes::install_github("matthewkling/rawvignette")
+# or
 pak::pak("matthewkling/rawvignette")
 ```
 
@@ -77,6 +78,7 @@ by contrast, sit in the shipped `vignettes/figures/`.
 - `use_raw_vignette()` &ndash; scaffold a new precompiled vignette or article, or migrate an existing one. Pass an `articles/` prefix (e.g. `use_raw_vignette("articles/benchmark")`) to scaffold an article.
 - `precompile_raw_vignettes()` &ndash; knit `vignettes-raw/` sources (recursively, including `articles/`) to their `vignettes/` outputs
 - `check_raw_vignettes()` &ndash; flag precompiled vignettes and articles whose source mtime is newer than their output
+- `use_raw_vignette_hook()` &ndash; (optional) install a git pre-commit hook that runs `check_raw_vignettes()` and blocks a commit if any output is stale
 
 ## Workflow
 
@@ -88,6 +90,21 @@ by contrast, sit in the shipped `vignettes/figures/`.
    and any figures.
 4. Commit changes to both files and any figure files.
 5. Before a release, use `check_raw_vignettes()` to sanity-check freshness.
+
+To catch the most common slip &mdash; editing a `vignettes-raw/` source and
+forgetting to precompile before committing &mdash; you can optionally install a
+git pre-commit hook:
+
+```r
+rawvignette::use_raw_vignette_hook()
+```
+
+This runs `check_raw_vignettes()` on every commit and blocks the commit if any
+output is stale. The hook is a convenience, not a guarantee: it compares
+modification times, so it catches an un-precompiled edit but not staleness from
+changed package code, data, or dependencies &mdash; and because it lives in
+`.git/hooks/` it isn't version-controlled and must be re-installed per clone.
+For a robust guarantee, re-run `precompile_raw_vignettes()` before a release.
 
 ## Comparison to other pre-compilation approaches
 
@@ -118,13 +135,9 @@ something pkgdown can re-render into your site theme. `rawvignette`'s output
 is still an `.Rmd`, which pkgdown renders with the rest of the site.
 - **Articles (`usethis::use_article()`)**: creates a plain (non-precompiled)
 pkgdown article &mdash; web-only, `.Rbuildignore`d, not installed locally or on
-CRAN. [R Packages 2e][2] recommends articles precisely when one "really
-demands lots of graphics." `rawvignette` is complementary, not competing: it
-*adds precompilation* to that scenario, so a graphics- or compute-heavy
-article doesn't get re-executed by pkgdown on every build. Use a `rawvignette`
-vignette when the content deserves first-class (CRAN-installed, `vignette()`-
-discoverable) status, and a `rawvignette` article when it's web-only but still
-expensive to build.
+CRAN. This circumvents issues with CRAN, but some articles are still too
+compute-intensive to get rebuilt by pkgdown every time you push to GitHub.
+Pre-compiled `rawvignette` articles solve this.
 
 [1]: https://ropensci.org/blog/2019/12/08/precompute-vignettes/
 [2]: https://r-pkgs.org/vignettes.html

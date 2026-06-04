@@ -25,6 +25,26 @@
 #' After running this, edit the skeleton, then call
 #' [precompile_raw_vignettes()] to generate the shipped output.
 #'
+#' @section Migrating files that read or link to other files:
+#' Migration moves only the `.Rmd`; any sidecar files (a data CSV, an
+#' `.rds`, a linked image) are left in place, and `use_raw_vignette()`
+#' emits a note listing them. Where such a file should live depends on
+#' how it is used:
+#'
+#' - A file read **at knit time** (e.g. `read.csv("data.csv")` in a
+#'   chunk) should sit beside the source, since precompiling knits from
+#'   `vignettes-raw/`. Co-locating it there is fine and it won't ship
+#'   (the directory is build-ignored). Alternatively, address package
+#'   data path-independently, e.g. via `system.file()`.
+#' - A file the **rendered output** links to (e.g. an image pkgdown must
+#'   copy when building the site) should remain under `vignettes/`, where
+#'   pkgdown looks for it.
+#'
+#' A file used both ways may need to exist in both places. Because the
+#' source now lives in a different directory than the shipped output,
+#' paths that were relative to the old `vignettes/` location are no
+#' longer automatically valid for both stages.
+#'
 #' @param name Vignette or article name, without extension. Use an
 #'   `articles/` prefix (e.g. `"articles/benchmark"`) to scaffold an
 #'   article.
@@ -83,6 +103,9 @@ use_raw_vignette <- function(name, title = NULL) {
       } else if (file.exists(vig_path)) {
             message("Migrating existing ", vig_path, " to ", src_path)
             file.rename(vig_path, src_path)
+            warn_orphaned_siblings(from_dir = dirname(vig_path),
+                                   moved    = basename(vig_path),
+                                   dest_dir = dirname(src_path))
       } else {
             if (is.null(title)) title <- basename(name)
             writeLines(
@@ -104,7 +127,9 @@ use_raw_vignette <- function(name, title = NULL) {
             "  2. Run: rawvignette::precompile_raw_vignettes()\n",
             "  3. Commit ", src_path, ", ", vig_path,
             if (is_article) ", and any new figures (web-only)."
-            else ", and any new figures."
+            else ", and any new figures.",
+            "\n\nOptional: rawvignette::use_raw_vignette_hook() installs a ",
+            "pre-commit\nfreshness check so you don't forget to precompile."
       )
 
       open_for_editing(src_path)

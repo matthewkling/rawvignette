@@ -48,3 +48,26 @@ If \verb{vignettes/<name>.Rmd} already exists, it is migrated to
 After running this, edit the skeleton, then call
 \code{\link[=precompile_raw_vignettes]{precompile_raw_vignettes()}} to generate the shipped output.
 }
+\section{Migrating files that read or link to other files}{
+
+Migration moves only the \code{.Rmd}; any sidecar files (a data CSV, an
+\code{.rds}, a linked image) are left in place, and \code{use_raw_vignette()}
+emits a note listing them. Where such a file should live depends on
+how it is used:
+\itemize{
+\item A file read \strong{at knit time} (e.g. \code{read.csv("data.csv")} in a
+chunk) should sit beside the source, since precompiling knits from
+\verb{vignettes-raw/}. Co-locating it there is fine and it won't ship
+(the directory is build-ignored). Alternatively, address package
+data path-independently, e.g. via \code{system.file()}.
+\item A file the \strong{rendered output} links to (e.g. an image pkgdown must
+copy when building the site) should remain under \verb{vignettes/}, where
+pkgdown looks for it.
+}
+
+A file used both ways may need to exist in both places. Because the
+source now lives in a different directory than the shipped output,
+paths that were relative to the old \verb{vignettes/} location are no
+longer automatically valid for both stages.
+}
+

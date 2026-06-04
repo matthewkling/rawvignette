@@ -3,3 +3,4 @@
 export(check_raw_vignettes)
 export(precompile_raw_vignettes)
 export(use_raw_vignette)
+export(use_raw_vignette_hook)

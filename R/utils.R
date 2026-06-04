@@ -1,5 +1,41 @@
 # Internal helpers. Not exported.
 
+# After migrating a vignette/article .Rmd out of `from_dir`, warn about any
+# OTHER files left behind there. Migration moves only the .Rmd, so a sidecar
+# file the document depends on (a CSV, an .rds, a linked image) stays put and
+# may break things. We can't tell how each file is used, so we list them and
+# explain the two cases rather than trying to relocate anything.
+#
+# `figures/` is excluded: it holds generated output, not a source dependency.
+warn_orphaned_siblings <- function(from_dir, moved, dest_dir) {
+      if (!dir.exists(from_dir)) return(invisible())
+
+      siblings <- list.files(from_dir, full.names = FALSE, no.. = TRUE)
+      siblings <- setdiff(siblings, moved)
+
+      # Exclude things that are definitionally NOT this document's sidecar
+      # data, so we don't cry wolf:
+      #   - other .Rmd files (they're other vignettes/articles)
+      #   - the articles/ and figures/ structural directories
+      is_other_rmd <- grepl("\\.Rmd$", siblings, ignore.case = TRUE)
+      is_structural <- siblings %in% c("articles", "figures")
+      siblings <- siblings[!is_other_rmd & !is_structural]
+
+      if (length(siblings) == 0L) return(invisible())
+
+      message(
+            "\nNote: migration moved only the .Rmd. These files remain in ",
+            from_dir, ":\n  - ",
+            paste(siblings, collapse = "\n  - "),
+            "\nIf the document reads a file *at knit time* (e.g. read.csv()), ",
+            "move it\nto ", dest_dir, " so it sits beside the source when ",
+            "precompiling.\nIf instead the *rendered* output links to a file ",
+            "(e.g. an image pkgdown\nmust copy), leave it under vignettes/. ",
+            "Files used both ways may need\nto exist in both places."
+      )
+      invisible()
+}
+
 inject_generated_notice <- function(path, source_path) {
       lines <- readLines(path, warn = FALSE)
       yaml_delims <- which(lines == "---")
