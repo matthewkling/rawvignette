@@ -19,7 +19,7 @@ like setup and configuration complexities, incompatibility with certain
 CI environments, or file formats that don’t play nicely with IDEs like
 RStudio.
 
-## The solution
+## A solution
 
 `rawvignette` tries to make the pre-compiled vignette workflow as
 streamlined as possible, including setup and iteration, in the same way
@@ -135,11 +135,11 @@ rawvignette::use_raw_vignette_hook()
 This runs
 [`check_raw_vignettes()`](https://matthewkling.github.io/rawvignette/reference/check_raw_vignettes.md)
 on every commit and blocks the commit if any output is stale. The hook
-is a convenience, not a guarantee: it compares modification times, so it
-catches an un-precompiled edit but not staleness from changed package
-code, data, or dependencies — and because it lives in `.git/hooks/` it
-isn’t version-controlled and must be re-installed per clone. For a
-robust guarantee, re-run
+is a convenience, not a guarantee: it compares file modification times,
+so it catches an un-precompiled edit but not staleness from changed
+package code, data, or dependencies — and because it lives in
+`.git/hooks/` it isn’t version-controlled and must be re-installed per
+clone. For a robust guarantee, re-run
 [`precompile_raw_vignettes()`](https://matthewkling.github.io/rawvignette/reference/precompile_raw_vignettes.md)
 before a release.
 

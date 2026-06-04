@@ -58,7 +58,7 @@
 <p>Pre-computing your vignette locally is often a great solution. But common approaches for pre-computed vignettes have some friction points, like setup and configuration complexities, incompatibility with certain CI environments, or file formats that don’t play nicely with IDEs like RStudio.</p>
 </div>
 <div class="section level2">
-<h2 id="the-solution">The solution<a class="anchor" aria-label="anchor" href="#the-solution"></a>
+<h2 id="a-solution">A solution<a class="anchor" aria-label="anchor" href="#a-solution"></a>
 </h2>
 <p><code>rawvignette</code> tries to make the pre-compiled vignette workflow as streamlined as possible, including setup and iteration, in the same way that <code>usethis::use_vignette()</code> and <code>usethis::use_article()</code> does for standard vignettes and articles.</p>
 <p>Rather than running your vignette code at package-build time, the workflow splits rendering into two stages: a <em>source</em> stage with live, executable code (kept in <code>vignettes-raw/</code>) that you run locally when you want to, and a <em>staged</em> <code>.Rmd</code> in <code>vignettes/</code> whose code has already been executed and whose outputs have been inlined. Downstream tools — <code>R CMD check</code>, CRAN, pkgdown — only ever see the staged form, so they never re-execute your intensive code.</p>
@@ -125,7 +125,7 @@
 <p>To catch the most common slip — editing a <code>vignettes-raw/</code> source and forgetting to precompile before committing — you can optionally install a git pre-commit hook:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">rawvignette</span><span class="fu">::</span><span class="fu"><a href="reference/use_raw_vignette_hook.html">use_raw_vignette_hook</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<p>This runs <code><a href="reference/check_raw_vignettes.html">check_raw_vignettes()</a></code> on every commit and blocks the commit if any output is stale. The hook is a convenience, not a guarantee: it compares modification times, so it catches an un-precompiled edit but not staleness from changed package code, data, or dependencies — and because it lives in <code>.git/hooks/</code> it isn’t version-controlled and must be re-installed per clone. For a robust guarantee, re-run <code><a href="reference/precompile_raw_vignettes.html">precompile_raw_vignettes()</a></code> before a release.</p>
+<p>This runs <code><a href="reference/check_raw_vignettes.html">check_raw_vignettes()</a></code> on every commit and blocks the commit if any output is stale. The hook is a convenience, not a guarantee: it compares file modification times, so it catches an un-precompiled edit but not staleness from changed package code, data, or dependencies — and because it lives in <code>.git/hooks/</code> it isn’t version-controlled and must be re-installed per clone. For a robust guarantee, re-run <code><a href="reference/precompile_raw_vignettes.html">precompile_raw_vignettes()</a></code> before a release.</p>
 </div>
 <div class="section level2">
 <h2 id="comparison-to-other-pre-compilation-approaches">Comparison to other pre-compilation approaches<a class="anchor" aria-label="anchor" href="#comparison-to-other-pre-compilation-approaches"></a>
