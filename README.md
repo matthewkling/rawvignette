@@ -1,6 +1,7 @@
 # rawvignette
 
 <!-- badges: start -->
+[![R-CMD-check](https://github.com/matthewkling/rawvignette/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/matthewkling/rawvignette/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 Streamlined workflow for pre-compiled R package vignettes and pkgdown
@@ -37,16 +38,11 @@ outputs have been inlined. Downstream tools &mdash; `R CMD check`, CRAN, pkgdown
 The same workflow covers both **package vignettes** (shipped with the package,
 discoverable via `vignette()`, visible on CRAN) and **pkgdown articles**
 (web-only, excluded from the package tarball). Which one you get is determined
-by where the source lives: a source under `vignettes-raw/articles/` becomes an
-article; anything else becomes a vignette. There's no separate flag &mdash; the
-path is the single source of truth, so a no-argument
-`precompile_raw_vignettes()` does the right thing across a mixed tree.
+by whether the source lives in an `articles/` subdirectory.
 
 ## Installation
 
 ```r
-remotes::install_github("matthewkling/rawvignette")
-# or
 pak::pak("matthewkling/rawvignette")
 ```
 
@@ -67,11 +63,10 @@ your-package/
 └── .Rbuildignore               # includes ^vignettes-raw$ and ^vignettes/articles$
 ```
 
-Article figures live inside the build-ignored `vignettes/articles/` subtree
-(at rmarkdown's default `<name>_files/` location, since pkgdown ignores a
-custom `fig.path`), so a single `^vignettes/articles$` entry keeps both the
-rendered article and its figures out of the package tarball. Vignette figures,
-by contrast, sit in the shipped `vignettes/figures/`.
+Article figures live inside the build-ignored `vignettes/articles/` subtree, so 
+a single `^vignettes/articles$` entry keeps both the rendered article and its 
+figures out of the package tarball. Vignette figures, by contrast, sit in the 
+shipped `vignettes/figures/`.
 
 ## Functions
 
