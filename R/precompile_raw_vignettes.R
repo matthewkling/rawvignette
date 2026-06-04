@@ -78,11 +78,12 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
             return(invisible(character()))
       }
 
-      # Make figure paths from the source resolve relative to vignettes/.
-      # (Articles override fig.path per-iteration; this base.dir still
-      # anchors relative figure paths to the vignettes/ tree.)
+      # Each iteration sets base.dir and fig.path explicitly (vignettes ->
+      # vignettes/ with a flat figures/ dir; articles -> the article's own
+      # output dir with rmarkdown's default _files location). We capture and
+      # restore the originals here so the loop leaves global knitr opts as it
+      # found them.
       old_base_dir <- knitr::opts_knit$get("base.dir")
-      knitr::opts_knit$set(base.dir = normalizePath("vignettes", mustWork = TRUE))
       on.exit(knitr::opts_knit$set(base.dir = old_base_dir), add = TRUE)
 
       # Remember original fig.path so we can restore it after the loop
@@ -109,20 +110,33 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
 
             if (is_article) {
                   # Articles: use rmarkdown's default figure location beneath
-                  # the article, since pkgdown ignores a custom fig.path. The
-                  # figures land inside the build-ignored articles/ subtree, so
-                  # they never reach CRAN. Wipe the figure dir up front for a
-                  # clean rebuild (no mtime orphan heuristic for articles).
+                  # the article, since pkgdown ignores a custom fig.path.
+                  #
+                  # The figure files must land inside the build-ignored
+                  # articles/ subtree (so they never reach CRAN) AND at the
+                  # location the output's own relative image links point to.
+                  # Both are satisfied by pointing base.dir at the output's
+                  # OWN directory and using an unprefixed fig.path: the figure
+                  # is written beside the output, and the relative link knitr
+                  # emits resolves from the co-located output document. (Setting
+                  # base.dir to vignettes/ and prefixing fig.path instead would
+                  # make the written path and the emitted link disagree.)
                   base_name <- basename(nm)
-                  fig_dir   <- file.path(dirname(out), paste0(base_name, "_files"))
-                  knitr::opts_chunk$set(fig.path = paste0(base_name, "_files/figure-html/"))
+                  art_base_dir <- normalizePath(dirname(out), mustWork = TRUE)
+                  knitr::opts_knit$set(base.dir = art_base_dir)
+                  knitr::opts_chunk$set(
+                        fig.path = paste0(base_name, "_files/figure-html/"))
+
+                  fig_dir <- file.path(dirname(out), paste0(base_name, "_files"))
                   if (dir.exists(fig_dir)) {
                         unlink(fig_dir, recursive = TRUE)
                   }
             } else {
-                  # Vignettes: flat vignettes/figures/ with a per-vignette
-                  # prefix. Slashes in nm (shouldn't occur for top-level
-                  # vignettes, but be safe) are sanitized for the prefix.
+                  # Vignettes: shared base.dir (vignettes/) with a flat
+                  # figures/ dir and a per-vignette prefix. Slashes in nm
+                  # (shouldn't occur for top-level vignettes) are sanitized.
+                  knitr::opts_knit$set(
+                        base.dir = normalizePath("vignettes", mustWork = TRUE))
                   prefix <- gsub("/", "-", nm, fixed = TRUE)
                   knitr::opts_chunk$set(fig.path = paste0("figures/", prefix, "-"))
             }
@@ -161,6 +175,11 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
                         }
                   }
             }
+
+            # Warn about statically-linked resources the rendered doc needs
+            # but that aren't present beside the output (so pkgdown can't
+            # copy them). Best-effort; never fails the precompile.
+            warn_missing_output_resources(src = src, out = out)
 
             outputs[i] <- out
       }

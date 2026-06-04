@@ -36,6 +36,63 @@ warn_orphaned_siblings <- function(from_dir, moved, dest_dir) {
       invisible()
 }
 
+# After knitting `src` -> `out`, warn about statically-linked resources the
+# rendered document needs but that aren't present beside the output, where
+# pkgdown will look for them. Uses rmarkdown::find_external_resources() -- the
+# same detector pkgdown relies on -- run against the SOURCE, which reports
+# resources existing relative to the source. Any web-facing resource present
+# beside the source but missing beside the output would be copied by pkgdown
+# from the wrong place (i.e. not at all).
+#
+# Scope and honesty:
+#   - Only `web == TRUE` resources are checked. A knit-time-only data file
+#     (read by code, web == FALSE) is intentionally NOT flagged -- it need not
+#     ship.
+#   - Generated figures already exist beside the output, so they don't trip.
+#   - Detection inherits find_external_resources()'s heuristics (and blind
+#     spots); this is a best-effort warning, not a guarantee.
+#   - Entirely best-effort: if rmarkdown is unavailable or the scan errors,
+#     we say nothing and never interrupt precompile.
+warn_missing_output_resources <- function(src, out) {
+      if (!requireNamespace("rmarkdown", quietly = TRUE)) return(invisible())
+
+      res <- tryCatch(
+            rmarkdown::find_external_resources(src),
+            error = function(e) NULL
+      )
+      if (is.null(res) || nrow(res) == 0L) return(invisible())
+
+      # Web-facing resources only.
+      web <- res[isTRUE_vec(res$web), , drop = FALSE]
+      if (nrow(web) == 0L) return(invisible())
+
+      out_dir <- dirname(out)
+      # A resource is "missing" if its path (relative to the document) doesn't
+      # resolve beside the output. find_external_resources only returns paths
+      # that exist relative to the source, so this isolates output-side gaps.
+      rel_paths <- web$path
+      missing <- rel_paths[!file.exists(file.path(out_dir, rel_paths))]
+      if (length(missing) == 0L) return(invisible())
+
+      message(
+            "\nNote: the rendered ", basename(out), " links to file(s) that ",
+            "pkgdown will\nexpect beside it in ", out_dir,
+            " but that aren't there:\n  - ",
+            paste(missing, collapse = "\n  - "),
+            "\nThese look like authored assets (not generated output). Place ",
+            "a copy\nunder ", out_dir, " so pkgdown can find and copy them ",
+            "when building\nthe site. (Knit-time-only data files are not ",
+            "flagged here.)"
+      )
+      invisible()
+}
+
+# Coerce a possibly-logical/character/NA column to a clean logical vector.
+isTRUE_vec <- function(x) {
+      if (is.logical(x)) return(!is.na(x) & x)
+      tolower(as.character(x)) %in% c("true", "t", "1")
+}
+
 inject_generated_notice <- function(path, source_path) {
       lines <- readLines(path, warn = FALSE)
       yaml_delims <- which(lines == "---")

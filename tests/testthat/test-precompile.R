@@ -166,3 +166,59 @@ test_that("check_raw_vignettes recurses into articles/", {
             expect_equal(result$status[result$name == "articles/a"], "stale")
       })
 })
+
+# ---- Missing output-resource warning -------------------------------------
+
+test_that("warns when a linked asset is missing beside the output", {
+      skip_if_not_installed("rmarkdown")
+
+      withr::with_tempdir({
+            dir.create("vignettes-raw/articles", recursive = TRUE)
+            dir.create("vignettes/articles", recursive = TRUE)
+            src <- "vignettes-raw/articles/bench.Rmd"
+            out <- "vignettes/articles/bench.Rmd"
+
+            # A statically-linked image that exists beside the SOURCE
+            # (so find_external_resources() reports it) but not beside output.
+            writeLines(c("---", 'title: "A"', "---", "", "![diagram](diagram.png)"),
+                       src)
+            writeLines(c("---", 'title: "A"', "---", "", "![diagram](diagram.png)"),
+                       out)
+            writeLines("not a real png", "vignettes-raw/articles/diagram.png")
+
+            msgs <- testthat::capture_messages(
+                  warn_missing_output_resources(src, out))
+            expect_true(any(grepl("diagram\\.png", msgs)))
+      })
+})
+
+test_that("silent when the linked asset is present beside the output", {
+      skip_if_not_installed("rmarkdown")
+
+      withr::with_tempdir({
+            dir.create("vignettes-raw/articles", recursive = TRUE)
+            dir.create("vignettes/articles", recursive = TRUE)
+            src <- "vignettes-raw/articles/bench.Rmd"
+            out <- "vignettes/articles/bench.Rmd"
+            writeLines(c("---", 'title: "A"', "---", "", "![diagram](diagram.png)"),
+                       src)
+            writeLines(c("---", 'title: "A"', "---", "", "![diagram](diagram.png)"),
+                       out)
+            writeLines("x", "vignettes-raw/articles/diagram.png")
+            writeLines("x", "vignettes/articles/diagram.png")  # present beside output
+
+            msgs <- testthat::capture_messages(
+                  warn_missing_output_resources(src, out))
+            expect_false(any(grepl("diagram\\.png", msgs)))
+      })
+})
+
+test_that("warn_missing_output_resources is silent without rmarkdown deps", {
+      # Even if rmarkdown is absent or the scan fails, this must not error.
+      withr::with_tempdir({
+            expect_silent(
+                  suppressMessages(
+                        warn_missing_output_resources("nope.Rmd",
+                                                      "vignettes/nope.Rmd")))
+      })
+})

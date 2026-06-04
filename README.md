@@ -40,11 +40,13 @@ discoverable via `vignette()`, visible on CRAN) and **pkgdown articles**
 (web-only, excluded from the package tarball). Which one you get is determined
 by whether the source lives in an `articles/` subdirectory.
 
+
 ## Installation
 
 ```r
 pak::pak("matthewkling/rawvignette")
 ```
+
 
 ## File layout
 
@@ -63,10 +65,28 @@ your-package/
 └── .Rbuildignore               # includes ^vignettes-raw$ and ^vignettes/articles$
 ```
 
+Plots produced by code chunks are handled automatically (generated as figures
+during precompilation). Vignette figures sit in the shipped `vignettes/figures/`.
 Article figures live inside the build-ignored `vignettes/articles/` subtree, so 
 a single `^vignettes/articles$` entry keeps both the rendered article and its 
-figures out of the package tarball. Vignette figures, by contrast, sit in the 
-shipped `vignettes/figures/`.
+figures out of the package tarball. 
+
+### Files your vignette depends on
+ 
+Two kinds of dependency are worth noting, because the source now lives 
+in `vignettes-raw/` while the shipped output lives in `vignettes/`:
+ 
+- **Files read at knit time** (e.g. `read.csv("data.csv")` in a chunk). These
+  are needed only while precompiling, which knits from `vignettes-raw/`, so
+  place them beside the source there. They won't ship &mdash; which is correct,
+  since their result is already baked into the output &mdash; or you can address
+  package data path-independently with `system.file()`.
+- **Files the rendered page links to** (e.g. a hand-made `![](diagram.png)`).
+  pkgdown copies these from beside the *output*, so they must live under
+  `vignettes/` (for articles, under `vignettes/articles/`). `precompile_raw_vignettes()`
+  warns if the rendered document links to such a file that isn't present beside
+  the output.
+
 
 ## Functions
 
@@ -74,6 +94,7 @@ shipped `vignettes/figures/`.
 - `precompile_raw_vignettes()` &ndash; knit `vignettes-raw/` sources (recursively, including `articles/`) to their `vignettes/` outputs
 - `check_raw_vignettes()` &ndash; flag precompiled vignettes and articles whose source mtime is newer than their output
 - `use_raw_vignette_hook()` &ndash; (optional) install a git pre-commit hook that runs `check_raw_vignettes()` and blocks a commit if any output is stale
+
 
 ## Workflow
 
@@ -100,6 +121,7 @@ modification times, so it catches an un-precompiled edit but not staleness from
 changed package code, data, or dependencies &mdash; and because it lives in
 `.git/hooks/` it isn't version-controlled and must be re-installed per clone.
 For a robust guarantee, re-run `precompile_raw_vignettes()` before a release.
+
 
 ## Comparison to other pre-compilation approaches
 
