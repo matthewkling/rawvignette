@@ -50,7 +50,7 @@ each knit instead (see Details).
 
 Whether a source is treated as an article is auto-detected from its
 path: anything under \verb{articles/} (relative to \verb{vignettes-raw/}) is an
-article. There is deliberately no separate flag — the source location
+article. There is deliberately no separate flag -- the source location
 is the single source of truth, so a no-argument call does the right
 thing across a mixed tree.
 }
@@ -65,6 +65,68 @@ that directory is recreated on every knit, we cannot use the mtime
 orphan heuristic reliably across renamed chunks; instead the whole
 \verb{<name>_files/} directory is removed before knitting so each run starts
 clean.
+}
+
+\section{Article figure rendering (matching pkgdown)}{
+
+A native pkgdown article is knitted by pkgdown itself, which applies the
+figure settings from its \verb{figures:} field (defaults plus any
+\verb{_pkgdown.yml} overrides) -- notably \code{fig.retina}, which gives pkgdown
+figures their high-resolution rendering, and a device/dpi pairing. A
+precompiled article is knitted here instead, so without intervention it
+would use knitr's plain defaults and the baked figures would look
+smaller and lower-resolution than a native article, and would carry
+knitr's "plot of chunk" caption fallback.
+
+To keep precompiled articles visually identical to native ones, the
+article branch pulls pkgdown's current figure settings via
+\code{\link[pkgdown:fig_settings]{pkgdown::fig_settings()}} and applies them as chunk-option defaults
+before knitting. Because these are \emph{defaults} set before the knit, any
+figure option the author sets in their own setup chunk or per-chunk
+still wins. The figure device matches pkgdown's (\code{ragg::agg_png}) when
+the ragg package is installed, and otherwise falls back to knitr's
+default PNG device; resolution parity holds either way, since it is
+driven by \code{dpi} and \code{fig.retina} rather than the device itself.
+
+One pkgdown figure setting is deliberately \emph{not} applied: \code{fig.asp}.
+Unlike inert defaults such as \code{dpi} or \code{fig.retina}, a document-wide
+\code{fig.asp} actively recomputes each chunk's \code{fig.height} as
+\code{fig.width * fig.asp}, which would silently override any per-chunk
+\code{fig.height} an author sets and force every figure to one aspect ratio.
+Only an inert default \code{fig.width} is applied; figure heights are left
+to per-chunk options and knitr's defaults, so per-chunk sizing works as
+authored.
+
+pkgdown is required to precompile an article (it is a pkgdown concept);
+the call errors if pkgdown is not installed. Vignettes are unaffected --
+they never enter this branch.
+}
+
+\section{Which version of the package is captured}{
+
+Precompiling runs your source chunks in the current R session, so the
+output captures whatever version of \emph{your} package that session
+resolves when the source calls \code{library(yourpkg)} (or \code{yourpkg::fn()}).
+This is worth being deliberate about, because it determines what users
+will see baked into the shipped document:
+\itemize{
+\item From a plain R session, the \strong{installed} version of your package is
+used -- the one in your library, not necessarily your working tree.
+\item After \code{\link[devtools:load_all]{devtools::load_all()}} (or while your package is otherwise
+loaded from source), that source version shadows the installed one
+and is used instead, following R's normal namespace resolution.
+}
+
+The practical implication: precompiling mid-development with
+\code{load_all()} bakes in output from your uninstalled working tree, which
+may not match what an installed user gets. That is often convenient
+while iterating, but for the \strong{final} precompile before a release,
+install the package first (e.g. \code{devtools::install()}) and precompile
+from a clean session, so the captured output reflects the version users
+will actually run. This is also why \code{\link[=check_raw_vignettes]{check_raw_vignettes()}} can only
+offer a weak freshness guarantee -- it cannot see that the captured
+output came from a different package version than is currently
+installed.
 
 Run from the package root.
 }
