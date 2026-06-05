@@ -56,7 +56,7 @@ knit instead (see Details).
 
 Whether a source is treated as an article is auto-detected from its
 path: anything under `articles/` (relative to `vignettes-raw/`) is an
-article. There is deliberately no separate flag — the source location is
+article. There is deliberately no separate flag – the source location is
 the single source of truth, so a no-argument call does the right thing
 across a mixed tree.
 
@@ -70,5 +70,69 @@ that directory is recreated on every knit, we cannot use the mtime
 orphan heuristic reliably across renamed chunks; instead the whole
 `<name>_files/` directory is removed before knitting so each run starts
 clean.
+
+## Article figure rendering (matching pkgdown)
+
+A native pkgdown article is knitted by pkgdown itself, which applies the
+figure settings from its `figures:` field (defaults plus any
+`_pkgdown.yml` overrides) – notably `fig.retina`, which gives pkgdown
+figures their high-resolution rendering, and a device/dpi pairing. A
+precompiled article is knitted here instead, so without intervention it
+would use knitr's plain defaults and the baked figures would look
+smaller and lower-resolution than a native article, and would carry
+knitr's "plot of chunk" caption fallback.
+
+To keep precompiled articles visually identical to native ones, the
+article branch pulls pkgdown's current figure settings via
+[`pkgdown::fig_settings()`](https://pkgdown.r-lib.org/reference/fig_settings.html)
+and applies them as chunk-option defaults before knitting. Because these
+are *defaults* set before the knit, any figure option the author sets in
+their own setup chunk or per-chunk still wins. The figure device matches
+pkgdown's
+([`ragg::agg_png`](https://ragg.r-lib.org/reference/agg_png.html)) when
+the ragg package is installed, and otherwise falls back to knitr's
+default PNG device; resolution parity holds either way, since it is
+driven by `dpi` and `fig.retina` rather than the device itself.
+
+One pkgdown figure setting is deliberately *not* applied: `fig.asp`.
+Unlike inert defaults such as `dpi` or `fig.retina`, a document-wide
+`fig.asp` actively recomputes each chunk's `fig.height` as
+`fig.width * fig.asp`, which would silently override any per-chunk
+`fig.height` an author sets and force every figure to one aspect ratio.
+Only an inert default `fig.width` is applied; figure heights are left to
+per-chunk options and knitr's defaults, so per-chunk sizing works as
+authored.
+
+pkgdown is required to precompile an article (it is a pkgdown concept);
+the call errors if pkgdown is not installed. Vignettes are unaffected –
+they never enter this branch.
+
+## Which version of the package is captured
+
+Precompiling runs your source chunks in the current R session, so the
+output captures whatever version of *your* package that session resolves
+when the source calls
+[`library(yourpkg)`](https://rdrr.io/r/base/library.html) (or
+`yourpkg::fn()`). This is worth being deliberate about, because it
+determines what users will see baked into the shipped document:
+
+- From a plain R session, the **installed** version of your package is
+  used – the one in your library, not necessarily your working tree.
+
+- After `devtools::load_all()` (or while your package is otherwise
+  loaded from source), that source version shadows the installed one and
+  is used instead, following R's normal namespace resolution.
+
+The practical implication: precompiling mid-development with
+`load_all()` bakes in output from your uninstalled working tree, which
+may not match what an installed user gets. That is often convenient
+while iterating, but for the **final** precompile before a release,
+install the package first (e.g. `devtools::install()`) and precompile
+from a clean session, so the captured output reflects the version users
+will actually run. This is also why
+[`check_raw_vignettes()`](https://matthewkling.github.io/rawvignette/reference/check_raw_vignettes.md)
+can only offer a weak freshness guarantee – it cannot see that the
+captured output came from a different package version than is currently
+installed.
 
 Run from the package root.

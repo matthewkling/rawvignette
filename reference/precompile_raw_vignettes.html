@@ -93,7 +93,7 @@ each knit instead (see Details).</p>
 
 <p>Whether a source is treated as an article is auto-detected from its
 path: anything under <code>articles/</code> (relative to <code>vignettes-raw/</code>) is an
-article. There is deliberately no separate flag — the source location
+article. There is deliberately no separate flag – the source location
 is the single source of truth, so a no-argument call does the right
 thing across a mixed tree.</p>
     </div>
@@ -109,6 +109,63 @@ that directory is recreated on every knit, we cannot use the mtime
 orphan heuristic reliably across renamed chunks; instead the whole
 <code>&lt;name&gt;_files/</code> directory is removed before knitting so each run starts
 clean.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="article-figure-rendering-matching-pkgdown-">Article figure rendering (matching pkgdown)<a class="anchor" aria-label="anchor" href="#article-figure-rendering-matching-pkgdown-"></a></h2>
+
+
+<p>A native pkgdown article is knitted by pkgdown itself, which applies the
+figure settings from its <code>figures:</code> field (defaults plus any
+<code>_pkgdown.yml</code> overrides) – notably <code>fig.retina</code>, which gives pkgdown
+figures their high-resolution rendering, and a device/dpi pairing. A
+precompiled article is knitted here instead, so without intervention it
+would use knitr's plain defaults and the baked figures would look
+smaller and lower-resolution than a native article, and would carry
+knitr's "plot of chunk" caption fallback.</p>
+<p>To keep precompiled articles visually identical to native ones, the
+article branch pulls pkgdown's current figure settings via
+<code><a href="https://pkgdown.r-lib.org/reference/fig_settings.html" class="external-link">pkgdown::fig_settings()</a></code> and applies them as chunk-option defaults
+before knitting. Because these are <em>defaults</em> set before the knit, any
+figure option the author sets in their own setup chunk or per-chunk
+still wins. The figure device matches pkgdown's (<code><a href="https://ragg.r-lib.org/reference/agg_png.html" class="external-link">ragg::agg_png</a></code>) when
+the ragg package is installed, and otherwise falls back to knitr's
+default PNG device; resolution parity holds either way, since it is
+driven by <code>dpi</code> and <code>fig.retina</code> rather than the device itself.</p>
+<p>One pkgdown figure setting is deliberately <em>not</em> applied: <code>fig.asp</code>.
+Unlike inert defaults such as <code>dpi</code> or <code>fig.retina</code>, a document-wide
+<code>fig.asp</code> actively recomputes each chunk's <code>fig.height</code> as
+<code>fig.width * fig.asp</code>, which would silently override any per-chunk
+<code>fig.height</code> an author sets and force every figure to one aspect ratio.
+Only an inert default <code>fig.width</code> is applied; figure heights are left
+to per-chunk options and knitr's defaults, so per-chunk sizing works as
+authored.</p>
+<p>pkgdown is required to precompile an article (it is a pkgdown concept);
+the call errors if pkgdown is not installed. Vignettes are unaffected –
+they never enter this branch.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="which-version-of-the-package-is-captured">Which version of the package is captured<a class="anchor" aria-label="anchor" href="#which-version-of-the-package-is-captured"></a></h2>
+
+
+<p>Precompiling runs your source chunks in the current R session, so the
+output captures whatever version of <em>your</em> package that session
+resolves when the source calls <code><a href="https://rdrr.io/r/base/library.html" class="external-link">library(yourpkg)</a></code> (or <code>yourpkg::fn()</code>).
+This is worth being deliberate about, because it determines what users
+will see baked into the shipped document:</p><ul><li><p>From a plain R session, the <strong>installed</strong> version of your package is
+used – the one in your library, not necessarily your working tree.</p></li>
+<li><p>After <code>devtools::load_all()</code> (or while your package is otherwise
+loaded from source), that source version shadows the installed one
+and is used instead, following R's normal namespace resolution.</p></li>
+</ul><p>The practical implication: precompiling mid-development with
+<code>load_all()</code> bakes in output from your uninstalled working tree, which
+may not match what an installed user gets. That is often convenient
+while iterating, but for the <strong>final</strong> precompile before a release,
+install the package first (e.g. <code>devtools::install()</code>) and precompile
+from a clean session, so the captured output reflects the version users
+will actually run. This is also why <code><a href="check_raw_vignettes.html">check_raw_vignettes()</a></code> can only
+offer a weak freshness guarantee – it cannot see that the captured
+output came from a different package version than is currently
+installed.</p>
 <p>Run from the package root.</p>
     </div>
 
