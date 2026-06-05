@@ -41,6 +41,63 @@
 #' `<name>_files/` directory is removed before knitting so each run starts
 #' clean.
 #'
+#' @section Article figure rendering (matching pkgdown):
+#' A native pkgdown article is knitted by pkgdown itself, which applies the
+#' figure settings from its `figures:` field (defaults plus any
+#' `_pkgdown.yml` overrides) -- notably `fig.retina`, which gives pkgdown
+#' figures their high-resolution rendering, and a device/dpi pairing. A
+#' precompiled article is knitted here instead, so without intervention it
+#' would use knitr's plain defaults and the baked figures would look
+#' smaller and lower-resolution than a native article, and would carry
+#' knitr's "plot of chunk" caption fallback.
+#'
+#' To keep precompiled articles visually identical to native ones, the
+#' article branch pulls pkgdown's current figure settings via
+#' [pkgdown::fig_settings()] and applies them as chunk-option defaults
+#' before knitting. Because these are *defaults* set before the knit, any
+#' figure option the author sets in their own setup chunk or per-chunk
+#' still wins. The figure device matches pkgdown's (`ragg::agg_png`) when
+#' the ragg package is installed, and otherwise falls back to knitr's
+#' default PNG device; resolution parity holds either way, since it is
+#' driven by `dpi` and `fig.retina` rather than the device itself.
+#'
+#' One pkgdown figure setting is deliberately *not* applied: `fig.asp`.
+#' Unlike inert defaults such as `dpi` or `fig.retina`, a document-wide
+#' `fig.asp` actively recomputes each chunk's `fig.height` as
+#' `fig.width * fig.asp`, which would silently override any per-chunk
+#' `fig.height` an author sets and force every figure to one aspect ratio.
+#' Only an inert default `fig.width` is applied; figure heights are left
+#' to per-chunk options and knitr's defaults, so per-chunk sizing works as
+#' authored.
+#'
+#' pkgdown is required to precompile an article (it is a pkgdown concept);
+#' the call errors if pkgdown is not installed. Vignettes are unaffected --
+#' they never enter this branch.
+#'
+#' @section Which version of the package is captured:
+#' Precompiling runs your source chunks in the current R session, so the
+#' output captures whatever version of *your* package that session
+#' resolves when the source calls `library(yourpkg)` (or `yourpkg::fn()`).
+#' This is worth being deliberate about, because it determines what users
+#' will see baked into the shipped document:
+#'
+#' - From a plain R session, the **installed** version of your package is
+#'   used -- the one in your library, not necessarily your working tree.
+#' - After [devtools::load_all()] (or while your package is otherwise
+#'   loaded from source), that source version shadows the installed one
+#'   and is used instead, following R's normal namespace resolution.
+#'
+#' The practical implication: precompiling mid-development with
+#' `load_all()` bakes in output from your uninstalled working tree, which
+#' may not match what an installed user gets. That is often convenient
+#' while iterating, but for the **final** precompile before a release,
+#' install the package first (e.g. `devtools::install()`) and precompile
+#' from a clean session, so the captured output reflects the version users
+#' will actually run. This is also why [check_raw_vignettes()] can only
+#' offer a weak freshness guarantee -- it cannot see that the captured
+#' output came from a different package version than is currently
+#' installed.
+#'
 #' Run from the package root.
 #'
 #' @param names Character vector of source paths relative to
@@ -90,6 +147,23 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
       old_fig_path <- knitr::opts_chunk$get("fig.path")
       on.exit(knitr::opts_chunk$set(fig.path = old_fig_path), add = TRUE)
 
+      # The article branch sets several figure chunk options (dev, dpi,
+      # fig.retina, ...) from pkgdown. Those are global knitr state, so we must
+      # (a) restore them when we exit, and (b) reset them at the top of every
+      # iteration -- otherwise an article's settings would leak out of the
+      # function, and would bleed into a *vignette* built later in the same
+      # call, silently changing the vignette's figures. We snapshot the keys
+      # the article branch may touch and restore/reset exactly those.
+      fig_opt_keys <- c("dev", "dpi", "fig.retina", "fig.width", "fig.cap")
+      old_fig_opts <- knitr::opts_chunk$get(fig_opt_keys)
+      reset_fig_opts <- function() {
+            for (k in fig_opt_keys) {
+                  knitr::opts_chunk$set(
+                        stats::setNames(list(old_fig_opts[[k]]), k))
+            }
+      }
+      on.exit(reset_fig_opts(), add = TRUE)
+
       vig_fig_dir <- file.path("vignettes", "figures")
 
       outputs <- character(length(names))
@@ -102,6 +176,10 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
                   warning("Source not found, skipping: ", src, call. = FALSE)
                   next
             }
+
+            # Start each iteration from the captured figure-option baseline so
+            # settings from a previous (article) iteration never carry over.
+            reset_fig_opts()
 
             is_article <- is_article_path(nm)
 
@@ -124,6 +202,15 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
                   base_name <- basename(nm)
                   art_base_dir <- normalizePath(dirname(out), mustWork = TRUE)
                   knitr::opts_knit$set(base.dir = art_base_dir)
+
+                  # Apply pkgdown's figure settings as chunk-option DEFAULTS so
+                  # the baked figures match a native pkgdown article (device,
+                  # dpi, fig.retina) and don't get knitr's "plot of chunk"
+                  # caption fallback. Errors if pkgdown is absent. Set these
+                  # BEFORE fig.path: fig.path is ours to control (we are the
+                  # knitter, not pkgdown), so it must be set last and not be
+                  # overridden by the pkgdown options.
+                  do.call(knitr::opts_chunk$set, pkgdown_fig_opts())
                   knitr::opts_chunk$set(
                         fig.path = paste0(base_name, "_files/figure-html/"))
 
@@ -192,6 +279,95 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
 is_article_path <- function(nm) {
       parts <- strsplit(nm, "/", fixed = TRUE)[[1]]
       length(parts) >= 2L && parts[1] == "articles"
+}
+
+#' Resolve the figure chunk options pkgdown would use for an article
+#'
+#' Returns a named list of knitr chunk options that mirror how pkgdown
+#' renders article figures, so a precompiled article's baked figures match
+#' a native one. Built from [pkgdown::fig_settings()], which merges the
+#' `figures:` field of `_pkgdown.yml` over pkgdown's own defaults -- so we
+#' track pkgdown's defaults without hard-coding them and pick up a user's
+#' customizations automatically.
+#'
+#' The small translation applied here mirrors pkgdown's internal
+#' `fig_opts_chunk()`: strip the namespace from the device name so knitr
+#' accepts it, resolve the `fig.asp`-beats-`fig.height` interaction, and
+#' fold the background colour into `dev.args`. We additionally set
+#' `fig.cap = NA` to suppress knitr's "plot of chunk <label>" caption
+#' fallback (and the surrounding `<div class="figure">` wrapper), which a
+#' native pkgdown article does not show.
+#'
+#' pkgdown is required: articles are a pkgdown concept, so anyone
+#' precompiling one should have it installed. We error rather than fall
+#' back to hard-coded values that could silently drift from pkgdown.
+#'
+#' @return A named list suitable for `do.call(knitr::opts_chunk$set, .)`.
+#' @noRd
+pkgdown_fig_opts <- function() {
+      if (!requireNamespace("pkgdown", quietly = TRUE)) {
+            stop(
+                  "Package 'pkgdown' is required to precompile articles, so the\n",
+                  "baked-in figures match how pkgdown renders native articles\n",
+                  "(resolution, retina, device). Install it with\n",
+                  'install.packages("pkgdown"), or move this document out of\n',
+                  "articles/ to precompile it as a plain vignette.",
+                  call. = FALSE
+            )
+      }
+
+      figures <- pkgdown::fig_settings()
+
+      opts <- list()
+
+      # Device. pkgdown renders with ragg::agg_png. knitr's corresponding
+      # built-in device alias is "ragg_png" (underscore), which it resolves to
+      # ragg::agg_png -- but ONLY if ragg is installed. We must NOT pass the
+      # bare "agg_png" (knitr can't resolve it; the knit errors), and we must
+      # not force "ragg_png" when ragg is absent (also errors). So: request
+      # ragg_png only when ragg is available; otherwise leave `dev` unset and
+      # let knitr use its default raster device, which still honors dpi and
+      # fig.retina -- the levers that actually drive resolution parity.
+      #
+      # We deliberately do NOT thread pkgdown's `dev.args`/`bg` through. Those
+      # are consumed by pkgdown's own device-invocation path, not by a plain
+      # knit; passing bg = NA to knitr's device triggers a "mode(bg) differs"
+      # warning (and is rejected outright by some devices). The visible
+      # resolution parity does not depend on them.
+      if (requireNamespace("ragg", quietly = TRUE)) {
+            opts$dev <- "ragg_png"
+      }
+
+      # Resolution. fig.retina is the lever that gives native pkgdown figures
+      # their 2x crispness; its absence is why a plain knit looks lower-res.
+      # These are inert defaults: a chunk that doesn't set them inherits them,
+      # and a chunk that does overrides cleanly.
+      opts$dpi        <- figures$dpi
+      opts$fig.retina <- figures$fig.retina
+
+      # Default WIDTH only. We set pkgdown's default fig.width (so a chunk that
+      # specifies no size still fills the pkgdown column), but we deliberately
+      # do NOT set fig.height or fig.asp.
+      #
+      # fig.asp is the trap: in knitr, setting fig.asp RECOMPUTES fig.height as
+      # fig.width * fig.asp for every chunk that doesn't itself set fig.asp =
+      # NULL. So a document-wide fig.asp (pkgdown's default is 1.618) silently
+      # overrides any per-chunk fig.height an author sets -- making all figures
+      # come out at the same aspect ratio regardless of their chunk options.
+      # fig.asp is an active transformer, not an inert default, so rawvignette
+      # must not impose it. By setting only fig.width and leaving height/asp
+      # alone, per-chunk fig.height (and fig.asp, and fig.dim) work normally;
+      # a chunk that sets nothing falls back to knitr's default height.
+      opts$fig.width <- figures$fig.width
+
+      # Suppress knitr's "plot of chunk <label>" caption fallback and the
+      # <div class="figure"> wrapper. NA means "no caption" without inventing
+      # one; an author who wants captions can set fig.cap per-chunk.
+      opts$fig.cap <- NA
+
+      # Drop NULL entries so we don't hand opts_chunk$set() NULLs (it ignores
+      # them anyway, but this keeps the list clean).
+      opts[!vapply(opts, is.null, logical(1))]
 }
 
 #' Validate a vignette/article name.

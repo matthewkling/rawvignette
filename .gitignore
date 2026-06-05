@@ -7,3 +7,4 @@
 /Meta/
 docs
 inst/doc
+*.DS_Store

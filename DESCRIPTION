@@ -20,6 +20,7 @@ Imports:
     knitr,
     tools
 Suggests:
+    pkgdown,
     rmarkdown,
     rstudioapi,
     testthat (>= 3.0.0),

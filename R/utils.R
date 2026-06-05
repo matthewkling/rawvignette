@@ -197,3 +197,6 @@ vignette_skeleton <- function(name, title, pkg, article = FALSE) {
             paste0(kind, " at `", regen_target, "`.")
       )
 }
+
+# Small null-coalescing helper
+`%||%` <- function(x, y) if (is.null(x)) y else x
