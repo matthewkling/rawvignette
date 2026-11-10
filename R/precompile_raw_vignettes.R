@@ -147,6 +147,14 @@ precompile_raw_vignettes <- function(names = NULL, quiet = TRUE) {
       old_fig_path <- knitr::opts_chunk$get("fig.path")
       on.exit(knitr::opts_chunk$set(fig.path = old_fig_path), add = TRUE)
 
+      # knitr::knit() (unlike rmarkdown::render()) defaults missing captions
+      # to "plot of chunk <label>", which pandoc then renders as a visible
+      # caption in the staged output. Match rmarkdown's empty default instead;
+      # chunk-level fig.cap / fig.alt still override this.
+      old_fig_cap <- knitr::opts_chunk$get("fig.cap")
+      on.exit(knitr::opts_chunk$set(fig.cap = old_fig_cap), add = TRUE)
+      knitr::opts_chunk$set(fig.cap = "")
+
       # The article branch sets several figure chunk options (dev, dpi,
       # fig.retina, ...) from pkgdown. Those are global knitr state, so we must
       # (a) restore them when we exit, and (b) reset them at the top of every
